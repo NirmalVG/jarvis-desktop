@@ -240,17 +240,21 @@ def _speak_technology_briefing(brain, tts, store, session_id) -> None:
     """Fetch and speak a short current technology briefing after wake."""
     hud_emit("THINKING", reply="Scanning global technology headlines...")
     try:
-        results = technology_headlines(limit=5)
-        web_context = format_results(results)
-        prompt = (
-            "Give a crisp wake-up briefing on the major technology events "
-            "happening around the world. Use only these current headlines."
-        )
-        briefing = brain.answer_with_web_context(prompt, web_context, session_id)
+        results = technology_headlines(limit=3)
+        if results:
+            headlines = []
+            for result in results:
+                source = f" from {result.source}" if result.source else ""
+                headlines.append(f"{result.title}{source}")
+            briefing = "Top technology signals: " + " Next: ".join(headlines)
+            store.save_turn("assistant", briefing, session_id)
+        else:
+            briefing = "I could not find fresh technology headlines just now."
+            store.save_turn("assistant", briefing, session_id)
     except Exception as exc:
         briefing = (
-            "JARVIS online. I could not reach the live technology brief just now, "
-            f"but the rest of my systems are ready. Web error: {exc}"
+            "I could not reach the live technology brief just now. "
+            f"Web error: {exc}"
         )
         store.save_turn("assistant", briefing, session_id)
 
@@ -449,6 +453,7 @@ def main():
         print("👋  Double-clap to activate Jarvis...")
         wake_fn()
     hud_emit("LISTENING")
+    tts.speak("JARVIS online. Scanning technology signals.")
     _speak_technology_briefing(brain, tts, store, session_id)
     tts.speak("Ready when you are.")
     print("\n✅  Session active. Say 'goodbye' to end.\n")

@@ -13,12 +13,6 @@
 import { useRef, useMemo } from "react"
 import { Canvas, useFrame, extend } from "@react-three/fiber"
 import { shaderMaterial } from "@react-three/drei"
-import {
-  EffectComposer,
-  Bloom,
-  ChromaticAberration,
-} from "@react-three/postprocessing"
-import { BlendFunction } from "postprocessing"
 import * as THREE from "three"
 import { AnimatePresence, motion } from "framer-motion"
 import { useAudioReactive } from "../hooks/useAudioReactive"
@@ -514,29 +508,11 @@ function Lighting({ state }) {
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 function SceneContent({ state, amplitude }) {
-  const cfg = S[state] || S.SLEEPING
-  const bloomIntensity = cfg.bloom + amplitude * 1.5 // voice boosts bloom
-
   return (
     <>
       <Lighting state={state} />
       <InnerCore state={state} amplitude={amplitude} />
       <PlasmaSphere state={state} amplitude={amplitude} />
-      <ParticleField state={state} amplitude={amplitude} />
-
-      <EffectComposer>
-        <Bloom
-          luminanceThreshold={0.08}
-          luminanceSmoothing={0.85}
-          intensity={bloomIntensity}
-          mipmapBlur
-          radius={0.7}
-        />
-        <ChromaticAberration
-          blendFunction={BlendFunction.NORMAL}
-          offset={new THREE.Vector2(cfg.aberration, cfg.aberration)}
-        />
-      </EffectComposer>
     </>
   )
 }
@@ -589,14 +565,16 @@ export default function UltimateOrb({ state = "SLEEPING", size = 300 }) {
       }}
     >
       <Canvas
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", background: "transparent" }}
         camera={{ position: [0, 0, 4.8], fov: 48 }}
         gl={{
           antialias: true,
           alpha: true,
+          premultipliedAlpha: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.2,
         }}
+        onCreated={({ gl }) => gl.setClearAlpha(0)}
         dpr={[1, 2]}
       >
         <SceneContent state={state} amplitude={amplitude} />

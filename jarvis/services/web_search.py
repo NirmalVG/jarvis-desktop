@@ -29,7 +29,7 @@ class SearchResult:
     source: str = ""
 
 
-def _fetch_text(url: str, timeout: int = 8) -> str:
+def _fetch_text(url: str, timeout: int = 5) -> str:
     req = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(req, timeout=timeout) as res:
         charset = res.headers.get_content_charset() or "utf-8"
@@ -50,7 +50,7 @@ def _google_news_source(item: ET.Element) -> str:
 def technology_headlines(limit: int = 5) -> list[SearchResult]:
     query = quote_plus("major technology news artificial intelligence chips cybersecurity startups")
     url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
-    root = ET.fromstring(_fetch_text(url))
+    root = ET.fromstring(_fetch_text(url, timeout=3))
     items = root.findall("./channel/item")
     results = []
     for item in items[:limit]:
