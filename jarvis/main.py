@@ -25,6 +25,8 @@ HUD Integration:
 import sys
 import re
 import os
+import webbrowser
+from urllib.parse import quote_plus
 
 # Fix Windows console encoding for emoji characters
 if sys.platform == "win32":
@@ -184,18 +186,6 @@ _SYSTEM_COMMANDS = {
 
 def _extract_web_query(clean: str, original: str) -> str | None:
     """Return a search query when the utterance asks for live web information."""
-    starters = (
-        "search web for ",
-        "search the web for ",
-        "search for ",
-        "look up ",
-        "google ",
-        "find online ",
-    )
-    for starter in starters:
-        if clean.startswith(starter):
-            return original[len(starter):].strip()
-
     current_markers = (
         "latest ",
         "current ",
@@ -210,6 +200,52 @@ def _extract_web_query(clean: str, original: str) -> str | None:
         return original.strip()
 
     return None
+
+
+def _extract_google_query(clean: str, original: str) -> str | None:
+    """Return a query for commands that should open Google in the browser."""
+    open_google_phrases = (
+        "open google",
+        "open google search",
+        "launch google",
+    )
+    if clean in open_google_phrases:
+        return ""
+
+    starters = (
+        "search google for ",
+        "search on google for ",
+        "google search for ",
+        "search web for ",
+        "search the web for ",
+        "search for ",
+        "google ",
+        "find online ",
+        "look up ",
+    )
+    for starter in starters:
+        if clean.startswith(starter):
+            return original[len(starter):].strip()
+
+    return None
+
+
+def _open_google_search(query: str, session_id, tts, store, transcript: str) -> bool:
+    """Open Google or a Google results page in the default browser."""
+    query = query.strip()
+    if query:
+        url = f"https://www.google.com/search?q={quote_plus(query)}"
+        reply = f"Searching Google for {query}."
+    else:
+        url = "https://www.google.com"
+        reply = "Opening Google."
+
+    webbrowser.open(url)
+    store.save_turn("user", transcript, session_id)
+    store.save_turn("assistant", reply, session_id)
+    hud_emit("SPEAKING", transcript=transcript, reply=reply, stats=store.stats())
+    tts.speak(reply)
+    return True
 
 
 def _answer_from_web(query: str, session_id, brain, tts, store, transcript: str) -> bool:
@@ -357,6 +393,10 @@ def handle_command(user_text, session_id, brain, actuator, tts, store) -> bool:
     if result is not None:
         return True
 
+    google_query = _extract_google_query(clean, user_text)
+    if google_query is not None:
+        return _open_google_search(google_query, session_id, tts, store, user_text)
+
     web_query = _extract_web_query(clean, user_text)
     if web_query:
         return _answer_from_web(web_query, session_id, brain, tts, store, user_text)
@@ -395,7 +435,7 @@ def handle_command(user_text, session_id, brain, actuator, tts, store) -> bool:
 
     search = GroqBrain.parse_search(reply)
     if search:
-        return _answer_from_web(search, session_id, brain, tts, store, user_text)
+        return _open_google_search(search, session_id, tts, store, user_text)
 
     if GroqBrain.parse_minimize(reply):
         actuator.minimize_window()

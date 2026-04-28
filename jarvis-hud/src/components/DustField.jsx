@@ -2,15 +2,15 @@
  * src/components/DustField.jsx
  * ─────────────────────────────
  * Canvas-based ambient particle system.
- * ~200 tiny dust motes drift slowly across a pure-black background
- * with soft blue tinting and subtle fade in/out.
+ * Tiny star-like motes drift across the entire viewport
+ * with subtle depth variation and no center pull.
  * State-reactive: particles accelerate during THINKING/SPEAKING.
  */
 
 import { useEffect, useRef } from "react"
 
-const PARTICLE_COUNT = 220
-const BASE_SPEED = 0.15
+const PARTICLE_COUNT = 360
+const BASE_SPEED = 0.22
 
 export default function DustField({ state = "SLEEPING" }) {
   const canvasRef = useRef(null)
@@ -24,15 +24,15 @@ export default function DustField({ state = "SLEEPING" }) {
       particles.push({
         x: Math.random() * window.innerWidth,
         y: Math.random() * window.innerHeight,
-        vx: (Math.random() - 0.5) * BASE_SPEED,
-        vy: (Math.random() - 0.5) * BASE_SPEED,
-        size: Math.random() * 1.8 + 0.3,
-        alpha: Math.random() * 0.4 + 0.05,
+        vx: (Math.random() * 0.7 + 0.25) * BASE_SPEED,
+        vy: (Math.random() - 0.5) * BASE_SPEED * 0.35,
+        depth: Math.random() * 0.8 + 0.35,
+        size: Math.random() * 1.2 + 0.35,
+        alpha: Math.random() * 0.45 + 0.12,
         alphaDir: Math.random() > 0.5 ? 1 : -1,
-        // Blue tint variations
-        r: Math.floor(Math.random() * 40 + 20),
-        g: Math.floor(Math.random() * 80 + 160),
-        b: Math.floor(Math.random() * 55 + 200),
+        r: Math.floor(Math.random() * 55 + 170),
+        g: Math.floor(Math.random() * 45 + 205),
+        b: Math.floor(Math.random() * 35 + 220),
         phase: Math.random() * Math.PI * 2,
       })
     }
@@ -81,27 +81,12 @@ export default function DustField({ state = "SLEEPING" }) {
       ctx.clearRect(0, 0, W, H)
 
       const spd = speedMultiplier()
-      const cx = W / 2
-      const cy = H / 2
 
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i]
 
-        // Drift towards center subtly
-        const dx = cx - p.x
-        const dy = cy - p.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        const pull = 0.00003 * spd
-
-        p.vx += dx * pull + Math.sin(time * 0.3 + p.phase) * 0.002
-        p.vy += dy * pull + Math.cos(time * 0.4 + p.phase) * 0.002
-
-        p.x += p.vx * spd
-        p.y += p.vy * spd
-
-        // Dampen
-        p.vx *= 0.998
-        p.vy *= 0.998
+        p.x += (p.vx + Math.sin(time * 0.22 + p.phase) * 0.015) * spd * p.depth
+        p.y += (p.vy + Math.cos(time * 0.18 + p.phase) * 0.01) * spd * p.depth
 
         // Wrap around edges
         if (p.x < -10) p.x = W + 10
@@ -110,26 +95,24 @@ export default function DustField({ state = "SLEEPING" }) {
         if (p.y > H + 10) p.y = -10
 
         // Breathing alpha
-        p.alpha += p.alphaDir * 0.002
-        if (p.alpha > 0.5) p.alphaDir = -1
-        if (p.alpha < 0.03) p.alphaDir = 1
+        p.alpha += p.alphaDir * 0.0015
+        if (p.alpha > 0.6) p.alphaDir = -1
+        if (p.alpha < 0.08) p.alphaDir = 1
 
-        // Glow near center
-        const centerGlow =
-          dist < 300 ? (1 - dist / 300) * 0.3 : 0
-
-        const finalAlpha = Math.min(1, p.alpha + centerGlow)
+        const twinkle = Math.sin(time * (0.8 + p.depth) + p.phase) * 0.08
+        const finalAlpha = Math.max(0.04, Math.min(0.75, p.alpha + twinkle))
+        const finalSize = p.size * p.depth
 
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.arc(p.x, p.y, finalSize, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${finalAlpha})`
         ctx.fill()
 
-        // Tiny glow for larger particles
-        if (p.size > 1.2) {
+        // Tiny star glow for brighter foreground particles
+        if (finalSize > 1.0) {
           ctx.beginPath()
-          ctx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${finalAlpha * 0.1})`
+          ctx.arc(p.x, p.y, finalSize * 2.2, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${finalAlpha * 0.08})`
           ctx.fill()
         }
       }
