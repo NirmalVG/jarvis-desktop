@@ -15,7 +15,7 @@ openwakeword>=0.6.0        # Built-in: alexa, hey_mycroft, hey_rhasspy
 faster-whisper>=1.0.0
 
 # ── Text-to-Speech ───────────────────────────────────────────
-edge-tts>=6.1.9            # PRIMARY: Microsoft Neural voices (note: HYPHEN not underscore)
+edge-tts==7.2.7            # PRIMARY: Microsoft Neural voices (Davis removed upstream)
 pyttsx3>=2.90              # Fallback: offline TTS
 pygame>=2.5.0              # Audio playback for edge-tts
 

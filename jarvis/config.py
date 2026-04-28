@@ -28,6 +28,12 @@ if not GROQ_API_KEY:
 # "keyword" — openwakeword model  (also offline, no keys, no signup)
 WAKE_MODE = "clap"
 
+# Startup behavior
+# True: speak the technology briefing immediately, then begin normal conversation.
+# False: wait for the configured wake trigger before speaking/listening.
+AUTO_START_CONVERSATION = True
+STARTUP_TECH_BRIEFING = True
+
 # Only used when WAKE_MODE = "keyword"
 # Built-in options (no download): "alexa", "hey_mycroft", "hey_rhasspy"
 # Custom model:  path to your trained .onnx file, e.g. "./models/hey_jarvis.onnx"
@@ -51,9 +57,10 @@ MAX_RECORD_SECONDS    = 9
 GROQ_MODEL            = "llama-3.1-8b-instant"   # Fast; swap to "llama-3.3-70b-versatile" for smarter
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
-# Options: en-US-GuyNeural | en-US-DavisNeural (deeper) | en-US-TonyNeural (casual)
-TTS_VOICE             = "en-US-DavisNeural"
-TTS_RATE              = "+0%"       # TTS speed: "-20%" slower, "+30%" faster
+# Current male neural options: en-US-BrianNeural | en-US-GuyNeural | en-US-ChristopherNeural
+TTS_ENGINE            = "auto"      # "auto" = Edge neural voice, then local fallback
+TTS_VOICE             = "en-US-BrianNeural"
+TTS_RATE              = "-5%"       # TTS speed: "-20%" slower, "+30%" faster
 
 # ── Shutdown phrases ──────────────────────────────────────────────────────────
 SHUTDOWN_PHRASES      = ("shut down", "goodbye", "power off", "go to sleep", "goodnight")

@@ -1,54 +1,67 @@
 """
 jarvis/voice/tts.py
-═══════════════════
-Text-to-Speech: Microsoft Edge Neural TTS (online) with pyttsx3 offline fallback.
 
-Uses a persistent asyncio event loop in a background thread to avoid conflicts
-with the HUD bridge's own asyncio loop. Previous design called asyncio.run()
-per speak() invocation which breaks in Python 3.12+ and conflicts with other loops.
+Text-to-speech for Jarvis.
+
+Engines:
+  system - Windows SAPI speech. Most reliable on Windows.
+  auto   - Edge neural TTS first, then local fallback.
+  edge   - Edge neural TTS first, then local fallback if it fails.
+
+Edge TTS is nicer when it works, but it can return an empty audio stream on
+some networks or package versions. When that happens, Jarvis uses local speech
+for that one line and tries the neural voice again on the next line.
 """
+
+from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
+import sys
 import tempfile
 import threading
 from concurrent.futures import TimeoutError
 
 
 class TTS:
-    """
-    Speaks text aloud.
+    """Speak text aloud."""
 
-    Tries edge-tts first (natural Neural voice, requires internet).
-    Falls back to pyttsx3 if edge-tts fails or internet is unavailable.
-
-    Parameters
-    ──────────
-    voice      — Edge TTS voice name (en-US-GuyNeural, DavisNeural, TonyNeural…)
-    rate       — pyttsx3 fallback speaking rate (WPM)
-    tts_rate   — Edge TTS speed adjustment ("+0%", "-20%", "+30%")
-    """
-
-    def __init__(self, voice: str = "en-US-GuyNeural", rate: int = 175,
-                 tts_rate: str = "+0%"):
-        self._voice    = voice
-        self._rate     = rate
+    def __init__(
+        self,
+        engine: str = "system",
+        voice: str = "en-US-GuyNeural",
+        rate: int = 175,
+        tts_rate: str = "+0%",
+    ):
+        self._engine = engine.lower().strip()
+        self._voice = voice
+        self._rate = rate
         self._tts_rate = tts_rate
-        self._pygame   = None
+        self._pygame = None
         self._fallback = None
+        self._edge_available = self._engine in ("auto", "edge")
         self._speak_lock = threading.Lock()
 
-        # Persistent asyncio loop for edge-tts (avoids asyncio.run() conflicts)
-        self._loop     = asyncio.new_event_loop()
-        self._thread   = threading.Thread(target=self._loop.run_forever, daemon=True)
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True)
         self._thread.start()
 
-        self._init_pygame()
+        if self._edge_available:
+            self._init_pygame()
 
     def speak(self, text: str) -> None:
         """Speak text. Blocks until audio finishes."""
-        print(f"\n🤖  JARVIS: {text}")
+        print(f"\nJARVIS: {text}")
         with self._speak_lock:
+            if self._engine == "system":
+                self._speak_fallback(text)
+                return
+
+            if not self._edge_available:
+                self._speak_fallback(text)
+                return
+
             try:
                 future = asyncio.run_coroutine_threadsafe(
                     self._speak_edge(text), self._loop
@@ -57,9 +70,11 @@ class TTS:
             except TimeoutError:
                 future.cancel()
                 self._stop_edge_playback()
-                print("  [TTS] Edge speech timed out; stopped playback instead of starting a second voice.")
-            except Exception:
+                print("  [TTS] Edge speech timed out; switching to local speech.")
+                self._speak_fallback(text)
+            except Exception as exc:
                 self._stop_edge_playback()
+                print(f"  [TTS] Edge speech failed: {exc}")
                 self._speak_fallback(text)
 
     def set_voice(self, voice_name: str) -> None:
@@ -67,51 +82,88 @@ class TTS:
         self._voice = voice_name
 
     def set_rate(self, rate: str) -> None:
-        """Change the Edge TTS speed at runtime (e.g. '+20%', '-10%')."""
+        """Change the Edge TTS speed at runtime, e.g. '+20%' or '-10%'."""
         self._tts_rate = rate
-
-    # ── Edge TTS (primary) ────────────────────────────────────────────────────
 
     async def _speak_edge(self, text: str) -> None:
         import edge_tts
+
         communicate = edge_tts.Communicate(
-            text, voice=self._voice, rate=self._tts_rate
+            text,
+            voice=self._voice,
+            rate=self._tts_rate,
         )
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
             path = f.name
-        await communicate.save(path)
-
-        pygame = self._pygame
-        if pygame is None:
-            os.unlink(path)
-            raise RuntimeError("pygame not available")
-
-        pygame.mixer.music.load(path)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            await asyncio.sleep(0.05)
 
         try:
-            pygame.mixer.music.unload()
-        except Exception:
-            pass   # Some pygame versions don't have unload()
+            await communicate.save(path)
 
-        os.unlink(path)
+            if os.path.getsize(path) == 0:
+                raise RuntimeError("Edge TTS produced an empty audio file.")
 
-    # ── pyttsx3 fallback (offline) ────────────────────────────────────────────
+            pygame = self._pygame
+            if pygame is None:
+                raise RuntimeError("pygame mixer is not available.")
+
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                await asyncio.sleep(0.05)
+
+            try:
+                pygame.mixer.music.unload()
+            except Exception:
+                pass
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     def _speak_fallback(self, text: str) -> None:
-        if self._fallback is None:
-            import pyttsx3
-            self._fallback = pyttsx3.init()
-            self._fallback.setProperty("rate",   self._rate)
-            self._fallback.setProperty("volume", 1.0)
-            self._select_male_fallback_voice()
-        self._fallback.say(text)
-        self._fallback.runAndWait()
+        if sys.platform == "win32":
+            try:
+                self._speak_system_fallback(text)
+                return
+            except Exception as exc:
+                print(f"  [TTS] Windows system speech failed: {exc}")
+
+        try:
+            if self._fallback is None:
+                import pyttsx3
+
+                self._fallback = pyttsx3.init()
+                self._fallback.setProperty("rate", self._rate)
+                self._fallback.setProperty("volume", 1.0)
+                self._select_male_fallback_voice()
+            self._fallback.say(text)
+            self._fallback.runAndWait()
+        except Exception as exc:
+            raise RuntimeError(f"No local TTS engine could speak: {exc}") from exc
+
+    def _speak_system_fallback(self, text: str) -> None:
+        """Speak using built-in Windows SAPI."""
+        if sys.platform != "win32":
+            raise RuntimeError("Windows system speech is only available on Windows.")
+
+        script = (
+            "& { param([string]$Text) "
+            "$ErrorActionPreference = 'Stop'; "
+            "$speaker = New-Object -ComObject SAPI.SpVoice; "
+            "$speaker.Rate = 0; "
+            "$speaker.Volume = 100; "
+            "[void]$speaker.Speak($Text) "
+            "}"
+        )
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script, text],
+            check=True,
+            timeout=self._timeout_for(text),
+        )
 
     def _select_male_fallback_voice(self) -> None:
-        """Prefer a male offline voice so fallback never sounds like another speaker."""
+        """Prefer a male offline voice when pyttsx3 is used."""
         try:
             voices = self._fallback.getProperty("voices") or []
             preferred = None
@@ -130,7 +182,7 @@ class TTS:
             pass
 
     def _timeout_for(self, text: str) -> int:
-        """Give long briefings enough time so fallback does not overlap Edge TTS."""
+        """Give long briefings enough time to finish speaking."""
         return max(45, min(180, 20 + len(text) // 12))
 
     def _stop_edge_playback(self) -> None:
@@ -140,20 +192,17 @@ class TTS:
         except Exception:
             pass
 
-    # ── Init ──────────────────────────────────────────────────────────────────
-
     def _init_pygame(self) -> None:
         try:
             import pygame
+
             pygame.mixer.init()
             self._pygame = pygame
-        except Exception:
-            pass   # Will fall back to pyttsx3 at speak time
-
-    # ── Shutdown ──────────────────────────────────────────────────────────────
+        except Exception as exc:
+            print(f"  [TTS] pygame audio unavailable: {exc}")
 
     def shutdown(self) -> None:
-        """Cleanly stop the asyncio loop and release resources."""
+        """Cleanly stop audio resources."""
         try:
             if self._pygame:
                 self._pygame.mixer.quit()

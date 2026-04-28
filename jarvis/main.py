@@ -111,7 +111,7 @@ def boot():
     )
 
     print("  [3/7] Voice synthesiser (edge-tts)...")
-    tts = TTS(voice=cfg.TTS_VOICE, tts_rate=cfg.TTS_RATE)
+    tts = TTS(engine=cfg.TTS_ENGINE, voice=cfg.TTS_VOICE, tts_rate=cfg.TTS_RATE)
 
     print("  [4/7] AI brain (Groq)...")
     brain = GroqBrain(api_key=cfg.GROQ_API_KEY, store=store, model=cfg.GROQ_MODEL)
@@ -125,14 +125,16 @@ def boot():
     print("  [7/7] Vision engine...")
     _init_vision()
 
-    skip_wake = "--no-wake" in sys.argv
+    skip_wake = cfg.AUTO_START_CONVERSATION or "--no-wake" in sys.argv
+    if "--wait-for-wake" in sys.argv:
+        skip_wake = False
     wake_fn = None if skip_wake else _build_wake_fn()
 
     print("\n✅  All systems online.\n")
     s = store.stats()
     print(f"  📊  Memory: {s['total_turns']} turns · {s['sessions']} sessions · {s['memories']} embeddings · {s['facts']} facts\n")
     if skip_wake:
-        print("  ⚡  --no-wake mode: skipping clap detection.\n")
+        print("  ⚡  Auto-start mode: speaking briefing and skipping wake detection.\n")
 
     hud_emit("SLEEPING", stats=s)
     return wake_fn, stt, tts, brain, actuator, store
@@ -493,8 +495,10 @@ def main():
         print("👋  Double-clap to activate Jarvis...")
         wake_fn()
     hud_emit("LISTENING")
-    tts.speak("JARVIS online. Scanning technology signals.")
-    _speak_technology_briefing(brain, tts, store, session_id)
+    tts.speak("JARVIS online.")
+    if cfg.STARTUP_TECH_BRIEFING:
+        tts.speak("Scanning current technology signals.")
+        _speak_technology_briefing(brain, tts, store, session_id)
     tts.speak("Ready when you are.")
     print("\n✅  Session active. Say 'goodbye' to end.\n")
 
