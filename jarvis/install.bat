@@ -1,0 +1,1 @@
+pip install edge-tts openwakeword pygame sounddevice soundfile webrtcvad groq faster-whisper numpy sentence-transformers pyttsx3 websockets python-dotenv

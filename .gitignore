@@ -1,0 +1,45 @@
+# Environment and secrets
+.env
+.env.*
+jarvis/.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+
+# Node / frontend
+node_modules/
+dist/
+dist-electron/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Jarvis local runtime data
+jarvis/jarvis_memory.db
+jarvis/*.db
+jarvis/*.sqlite
+jarvis/*.sqlite3
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs and temporary files
+*.log
+tmp/
+temp/

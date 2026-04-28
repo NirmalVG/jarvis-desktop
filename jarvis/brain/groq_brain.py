@@ -1,0 +1,347 @@
+"""
+jarvis/brain/groq_brain.py
+══════════════════════════
+Groq-powered LLM brain.
+
+What makes this feel like Iron Man's Jarvis:
+  1. System prompt with a real personality — not just "you are an assistant"
+  2. Fact extraction — if you say "my name is Nirmal", Jarvis learns it
+  3. Time-aware context — different tone morning vs midnight
+  4. Action tagging — structured [OPEN:], [REMIND:], [SEARCH:] outputs
+  5. Memory injection — past conversations personalise every reply
+  6. Groq inference — llama-3.1-8b-instant is fast enough to feel real-time
+
+PRD references: F002, F003, F005
+"""
+
+import re
+from datetime import datetime
+from groq import Groq
+
+from memory.store import MemoryStore
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACH: The system prompt is everything.
+# The LLM has no identity until you give it one.  This prompt is the
+# "character sheet" — every word shapes how Jarvis responds.
+#
+# Key prompt engineering principles used here:
+#   1. Role definition  — who Jarvis IS, not just what it does
+#   2. Negative space   — what Jarvis NEVER does (equally important)
+#   3. Output format    — exact tag syntax, so the parser is reliable
+#   4. Tone calibration — dry wit, confident, no hedging
+#   5. Dynamic injection— time + memory + facts change each call
+# ─────────────────────────────────────────────────────────────────────────────
+
+_BASE_SYSTEM_PROMPT = """\
+You are J.A.R.V.I.S. — Just A Rather Very Intelligent System.
+You serve as the AI companion to your operator, combining deep technical \
+knowledge with dry British wit and iron composure.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PERSONALITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Sharp, precise, occasionally dry-witted — never sarcastic at the operator's expense
+• Confident without arrogance. When uncertain, say so briefly and move on.
+• You are a peer, not a servant. You respect the operator's intelligence.
+• You NEVER say "As an AI..." or "I'm just a language model..." — \
+  you are JARVIS. Own it.
+• Keep responses to 1-2 sentences UNLESS the operator explicitly asks for detail.
+• Use the operator's name if you know it, but not every single message.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACTION TAGS  (machine-parseable — use EXACTLY this format)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Opening an app or website:
+  [OPEN: app_name]
+  Example: [OPEN: youtube] — do NOT add anything after the bracket on that line
+
+Setting a reminder:
+  [REMIND: TIME | message]
+  TIME can be:  "15:30"  or  "5m"  or  "2h"
+  Example: [REMIND: 20:00 | Call Maya about the deployment]
+
+Web search:
+  [SEARCH: query]
+  Example: [SEARCH: latest Next.js 15 release notes]
+  Use this when the operator asks for current, recent, live, latest, today's,
+  or web-backed information.
+
+Window control:
+  [MINIMIZE] — minimize the active window
+  [MAXIMIZE] — maximize the active window
+
+Screenshot:
+  [SCREENSHOT] — capture the current screen
+
+Volume control:
+  [VOLUME: up] or [VOLUME: down] or [VOLUME: mute]
+
+Storing a fact about the operator:
+  [FACT: key | value]
+  Example: [FACT: user_name | Nirmal]
+  Use this whenever the operator tells you something persistent about themselves.
+  Keys: user_name, preferred_editor, current_project, preferred_language, location
+
+Only use ONE action tag per response.  If the request implies multiple actions,
+ask which the operator wants first.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KNOWLEDGE DOMAINS  (answer confidently without hedging)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Software engineering — React, Next.js, TypeScript, Python, system design
+AI/ML — model architectures, prompt engineering, inference optimisation
+Kerala & Mollywood — geography, culture, cinema, classical arts
+Product management — PRDs, roadmaps, user research, metrics
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TIME AWARENESS  (injected dynamically below)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{time_context}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MEMORY  (from past conversations — use to personalise)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{memory_block}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KNOWN FACTS ABOUT THE OPERATOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{facts_block}\
+"""
+
+
+def _time_context() -> str:
+    """
+    Return a time-of-day descriptor.
+    Jarvis adapts tone slightly — more alert at midnight builds.
+    """
+    now = datetime.now()
+    h = now.hour
+    time_str = now.strftime("%I:%M %p, %A %B %d, %Y")
+    if 5  <= h < 8:  return f"Early morning ({time_str}). The operator may appreciate brevity."
+    if 8  <= h < 12: return f"Morning ({time_str}). Standard operational hours."
+    if 12 <= h < 14: return f"Midday ({time_str}). The operator may be between tasks."
+    if 14 <= h < 18: return f"Afternoon ({time_str}). Peak productivity window."
+    if 18 <= h < 22: return f"Evening ({time_str}). Late builds are common — keep it efficient."
+    return                   f"Late night ({time_str}). The operator is likely deep in a build. Match the focus."
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fact extraction patterns
+# ─────────────────────────────────────────────────────────────────────────────
+# TEACH: We run a simple regex pass on EVERY reply from the LLM.
+# If it emits [FACT: key | value], we intercept it and write to the DB.
+# This lets Jarvis learn organically — no separate "tell me your name" flow.
+
+_FACT_PATTERNS = [
+    # User says "my name is X"
+    (r"(?i)my name is ([A-Z][a-z]+)",        "user_name"),
+    # User says "I prefer / I use X"
+    (r"(?i)i (?:prefer|use|work in) (\w+)",  "preferred_language"),
+    # User says "I'm working on X"
+    (r"(?i)i(?:'m| am) working on (.+?)(?:\.|$)", "current_project"),
+    # User says "call me X"
+    (r"(?i)call me ([A-Z][a-z]+)",           "user_name"),
+    # User says "I live in X"
+    (r"(?i)i (?:live|am) in ([A-Za-z\s]+?)(?:\.|$)", "location"),
+]
+
+
+def _extract_facts_from_text(text: str) -> list[tuple[str, str]]:
+    """
+    Pull facts directly from user input (not LLM output).
+    Returns [(key, value), ...]
+    """
+    results = []
+    for pattern, key in _FACT_PATTERNS:
+        m = re.search(pattern, text)
+        if m:
+            results.append((key, m.group(1).strip()))
+    return results
+
+
+class GroqBrain:
+    """
+    Stateless-per-call LLM interface.  All state lives in MemoryStore.
+
+    Parameters
+    ──────────
+    api_key  — Groq API key (from config.py → .env)
+    store    — shared MemoryStore instance
+    model    — Groq model ID
+    """
+
+    def __init__(self, api_key: str, store: MemoryStore, model: str = "llama-3.1-8b-instant"):
+        if not api_key or api_key.startswith("gsk_YOUR"):
+            raise ValueError(
+                "Groq API key is missing or placeholder. "
+                "Add your key to jarvis/.env — get one free at https://console.groq.com"
+            )
+        self._client = Groq(api_key=api_key)
+        self._store  = store
+        self._model  = model
+        self._total_tokens = 0  # Track usage across session
+
+    # ── Public ────────────────────────────────────────────────────────────────
+
+    def think(self, user_text: str, session_id: str) -> str:
+        """
+        Full pipeline:
+          user_text → persist → recall memory → build prompt → LLM → parse → persist → return
+        """
+        # 1. Persist user utterance
+        self._store.save_turn("user", user_text, session_id)
+
+        # 2. Extract and save facts from user's message proactively
+        for key, value in _extract_facts_from_text(user_text):
+            self._store.set_fact(key, value)
+            print(f"  [FACT] learned: {key} = {value}")
+
+        # 3. Session history (last 20 messages = 10 turns of dialogue)
+        history = self._store.get_session_history(session_id, limit=20)
+
+        # 4. Semantic memory recall
+        recalled = self._store.search(user_text, top_k=3)
+
+        # 5. Build dynamic system prompt
+        memory_block = (
+            "\n".join(f"  • {m}" for m in recalled)
+            if recalled else "  (no relevant past context)"
+        )
+
+        facts = self._store.get_all_facts()
+        facts_block = (
+            "\n".join(f"  • {k}: {v}" for k, v in facts.items())
+            if facts else "  (none yet — learning from this conversation)"
+        )
+
+        system = _BASE_SYSTEM_PROMPT.format(
+            time_context=_time_context(),
+            memory_block=memory_block,
+            facts_block=facts_block,
+        )
+
+        # 6. Call Groq
+        print("🧠  Thinking...", end=" ", flush=True)
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[{"role": "system", "content": system}] + history,
+                max_tokens=220,
+                temperature=0.75,
+            )
+            reply = response.choices[0].message.content.strip()
+
+            # Track token usage
+            if hasattr(response, 'usage') and response.usage:
+                tokens = response.usage.total_tokens or 0
+                self._total_tokens += tokens
+
+        except Exception as exc:
+            error_str = str(exc).lower()
+            if "authentication" in error_str or "api_key" in error_str or "401" in error_str:
+                reply = "My API key appears to be invalid or expired. Please update GROQ_API_KEY in your .env file."
+            elif "rate_limit" in error_str or "429" in error_str:
+                reply = "I'm being rate-limited. Give me a moment and try again."
+            else:
+                reply = f"I encountered an error in my reasoning core: {exc}"
+        print("done.")
+
+        # 7. Handle [FACT:] tags the LLM emits
+        fact_match = self.parse_fact(reply)
+        if fact_match:
+            key, value = fact_match
+            self._store.set_fact(key, value)
+            print(f"  [FACT] stored: {key} = {value}")
+            # Strip the tag from the spoken reply
+            reply = re.sub(r"\[FACT:.*?\]", "", reply, flags=re.IGNORECASE).strip()
+
+        # 8. Persist assistant reply
+        self._store.save_turn("assistant", reply, session_id)
+
+        return reply
+
+    def answer_with_web_context(self, user_text: str, web_context: str, session_id: str | None = None) -> str:
+        """
+        Answer a user question using freshly fetched web results.
+        """
+        system = (
+            "You are J.A.R.V.I.S. Answer using the current web results below. "
+            "Keep it concise, spoken, and useful. Mention uncertainty if the "
+            "results are thin or conflicting. Do not invent sources.\n\n"
+            f"Current web results:\n{web_context}"
+        )
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_text},
+                ],
+                max_tokens=260,
+                temperature=0.45,
+            )
+            reply = response.choices[0].message.content.strip()
+            if hasattr(response, "usage") and response.usage:
+                self._total_tokens += response.usage.total_tokens or 0
+        except Exception as exc:
+            reply = f"I found web results, but my summariser hit an error: {exc}"
+
+        if session_id:
+            self._store.save_turn("user", user_text, session_id)
+            self._store.save_turn("assistant", reply, session_id)
+        return reply
+
+    @property
+    def total_tokens(self) -> int:
+        """Total tokens used in this session."""
+        return self._total_tokens
+
+    # ── Action parsers (static — main.py uses these) ─────────────────────────
+
+    @staticmethod
+    def parse_open(reply: str) -> str | None:
+        """Extract app name from [OPEN: app_name], or None."""
+        m = re.search(r"\[OPEN:\s*(.*?)\]", reply, re.IGNORECASE)
+        return m.group(1).strip().lower() if m else None
+
+    @staticmethod
+    def parse_remind(reply: str) -> tuple[str, str] | None:
+        """Extract (time_str, message) from [REMIND: TIME | message], or None."""
+        m = re.search(r"\[REMIND:\s*(.*?)\s*\|\s*(.*?)\]", reply, re.IGNORECASE)
+        return (m.group(1).strip(), m.group(2).strip()) if m else None
+
+    @staticmethod
+    def parse_fact(reply: str) -> tuple[str, str] | None:
+        """Extract (key, value) from [FACT: key | value], or None."""
+        m = re.search(r"\[FACT:\s*(.*?)\s*\|\s*(.*?)\]", reply, re.IGNORECASE)
+        return (m.group(1).strip().lower(), m.group(2).strip()) if m else None
+
+    @staticmethod
+    def parse_search(reply: str) -> str | None:
+        """Extract search query from [SEARCH: query], or None."""
+        m = re.search(r"\[SEARCH:\s*(.*?)\]", reply, re.IGNORECASE)
+        return m.group(1).strip() if m else None
+
+    @staticmethod
+    def parse_minimize(reply: str) -> bool:
+        """Check if reply contains [MINIMIZE]."""
+        return bool(re.search(r"\[MINIMIZE\]", reply, re.IGNORECASE))
+
+    @staticmethod
+    def parse_maximize(reply: str) -> bool:
+        """Check if reply contains [MAXIMIZE]."""
+        return bool(re.search(r"\[MAXIMIZE\]", reply, re.IGNORECASE))
+
+    @staticmethod
+    def parse_screenshot(reply: str) -> bool:
+        """Check if reply contains [SCREENSHOT]."""
+        return bool(re.search(r"\[SCREENSHOT\]", reply, re.IGNORECASE))
+
+    @staticmethod
+    def parse_volume(reply: str) -> str | None:
+        """Extract volume action from [VOLUME: up/down/mute], or None."""
+        m = re.search(r"\[VOLUME:\s*(up|down|mute)\]", reply, re.IGNORECASE)
+        return m.group(1).strip().lower() if m else None

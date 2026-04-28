@@ -1,0 +1,32 @@
+# Jarvis Desktop — Python dependencies
+# Install: pip install -r requirements.txt
+
+# ── Audio ─────────────────────────────────────────────────────
+sounddevice>=0.4.6
+soundfile>=0.12.1
+webrtcvad>=2.0.10          # VAD for smart recording end-detection
+numpy>=1.24.0
+
+# ── Wake word (zero signup, fully offline) ────────────────────
+openwakeword>=0.6.0        # Built-in: alexa, hey_mycroft, hey_rhasspy
+                           # WAKE_MODE="clap" needs nothing extra
+
+# ── Speech-to-Text ────────────────────────────────────────────
+faster-whisper>=1.0.0
+
+# ── Text-to-Speech ───────────────────────────────────────────
+edge-tts>=6.1.9            # PRIMARY: Microsoft Neural voices (note: HYPHEN not underscore)
+pyttsx3>=2.90              # Fallback: offline TTS
+pygame>=2.5.0              # Audio playback for edge-tts
+
+# ── AI Brain ─────────────────────────────────────────────────
+groq>=0.9.0                # Free tier: https://console.groq.com
+
+# ── Memory / Embeddings ───────────────────────────────────────
+sentence-transformers>=3.0.0   # all-MiniLM-L6-v2 (~80MB, downloads on first run)
+
+# ── HUD Bridge ────────────────────────────────────────────────
+websockets>=12.0               # WebSocket server for Python→Electron HUD bridge
+
+# ── Config ────────────────────────────────────────────────────
+python-dotenv>=1.0.0           # Load API keys from .env file (optional)
