@@ -145,9 +145,9 @@ def _build_wake_fn():
         from wake.clap_detector import ClapDetector
         det = ClapDetector(
             sensitivity=cfg.CLAP_SENSITIVITY,
-            double_clap=cfg.CLAP_DOUBLE,
-            double_clap_min_ms=cfg.CLAP_MIN_GAP_MS,
-            double_clap_max_ms=cfg.CLAP_MAX_GAP_MS,
+            double_clap=getattr(cfg, 'CLAP_DOUBLE', False),
+            double_clap_min_ms=getattr(cfg, 'CLAP_MIN_GAP_MS', 150),
+            double_clap_max_ms=getattr(cfg, 'CLAP_MAX_GAP_MS', 800),
         )
         return det.listen
     elif cfg.WAKE_MODE == "keyword":
@@ -568,7 +568,8 @@ def main():
 
     # ── Wait for wake gesture ─────────────────────────────────────────────
     if wake_fn is not None:
-        print("👋  Double-clap to activate Jarvis...")
+        clap_type = "Single clap" if not getattr(cfg, 'CLAP_DOUBLE', False) else "Double-clap"
+        print(f"👋  {clap_type} to activate Jarvis...")
         wake_fn()
     hud_emit("LISTENING")
     tts.speak("JARVIS online.")

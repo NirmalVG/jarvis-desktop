@@ -17,6 +17,7 @@ PRD references: F002, F003, F005
 import re
 from datetime import datetime
 from groq import Groq
+import config as cfg
 
 from memory.store import MemoryStore
 from .advanced_understanding import advanced_understanding, UnderstandingResult
@@ -294,8 +295,9 @@ class GroqBrain:
         if understanding.implicit_request:
             user_text += f"\n[IMPLICIT_REQUEST: {understanding.implicit_request}]"
 
-        # 5. Session history (last 20 messages = 10 turns of dialogue)
-        history = self._store.get_session_history(session_id, limit=20)
+        # 5. Session history (use configurable limit for speed optimization)
+        memory_limit = getattr(cfg, 'MEMORY_HISTORY_LIMIT', 20)
+        history = self._store.get_session_history(session_id, limit=memory_limit)
 
         # 4. Semantic memory recall
         recalled = self._store.search(user_text, top_k=3)
@@ -357,11 +359,15 @@ Related Topics: {', '.join(research_result.related_topics[:3])}
         # 6. Call Groq
         print("🧠  Thinking...", end=" ", flush=True)
         try:
+            # Apply speed optimizations
+            max_tokens = getattr(cfg, 'MAX_TOKENS', 220)
+            temperature = getattr(cfg, 'RESPONSE_TEMPERATURE', 0.75)
+            
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[{"role": "system", "content": system}] + history,
-                max_tokens=220,
-                temperature=0.75,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
             reply = response.choices[0].message.content.strip()
 
@@ -405,14 +411,18 @@ Related Topics: {', '.join(research_result.related_topics[:3])}
             f"Current web results:\n{web_context}"
         )
         try:
+            # Apply speed optimizations for web context
+            max_tokens = getattr(cfg, 'MAX_TOKENS', 260)
+            temperature = getattr(cfg, 'RESPONSE_TEMPERATURE', 0.45)
+            
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user_text},
                 ],
-                max_tokens=260,
-                temperature=0.45,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
             reply = response.choices[0].message.content.strip()
             if hasattr(response, "usage") and response.usage:

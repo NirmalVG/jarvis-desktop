@@ -24,7 +24,7 @@ import sounddevice as sd
 
 # ── Audio constants ───────────────────────────────────────────────────────────
 SAMPLE_RATE = 16_000          # Hz  — matches Porcupine / webrtcvad
-FRAME_MS    = 20              # ms per analysis frame
+FRAME_MS    = 10              # ms per analysis frame (reduced for faster response)
 FRAME_SIZE  = int(SAMPLE_RATE * FRAME_MS / 1000)   # 320 samples
 
 

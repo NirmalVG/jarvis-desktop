@@ -31,8 +31,16 @@ WAKE_MODE = "clap"
 # Startup behavior
 # True: speak the technology briefing immediately, then begin normal conversation.
 # False: wait for the configured wake trigger before speaking/listening.
-AUTO_START_CONVERSATION = True
-STARTUP_TECH_BRIEFING = True
+AUTO_START_CONVERSATION = False
+STARTUP_TECH_BRIEFING = False
+
+# ── Senior Software Engineer Speed Optimizations ───────────────────────────────────
+# Ultra-fast response configuration
+FAST_RESPONSE_MODE = True
+CLAP_DOUBLE = False        # Single clap for instant activation
+CLAP_MIN_GAP_MS = 100      # Faster double-clap window if needed
+CLAP_MAX_GAP_MS = 400      # Reduced window for quicker detection
+CLAP_SENSITIVITY = 2.5     # More sensitive for faster trigger
 
 # ── Technology News Configuration ────────────────────────────────────────────────
 # Enable intelligent news summarization using the Groq brain
@@ -67,13 +75,14 @@ KEYWORD_MODEL     = "hey_mycroft"
 KEYWORD_THRESHOLD = 0.5    # 0.0–1.0; lower = more sensitive
 
 # ── Clap detector tuning ──────────────────────────────────────────────────────
-CLAP_SENSITIVITY      = 3.0    # Energy multiplier above noise floor (lower = more sensitive)
-CLAP_DOUBLE           = True   # Require double clap (reduces false positives)
-CLAP_MIN_GAP_MS       = 150    # Minimum gap between claps
-CLAP_MAX_GAP_MS       = 800    # Maximum gap between claps
+CLAP_SENSITIVITY      = 2.0    # Ultra-sensitive for instant response (Senior Software Engineer optimized)
+MAX_TOKENS = 80           # Minimized for ultra-fast responses
+MEMORY_HISTORY_LIMIT = 3   # Reduced for faster recall
+RESEARCH_DEPTH = "quick"   # Use quick research mode for speed
+RESPONSE_TEMPERATURE = 0.1  # Low temperature for deterministic, fast responses
 
 # ── STT ───────────────────────────────────────────────────────────────────────
-WHISPER_MODEL         = "base.en"   # "tiny.en" (fast) | "base.en" (recommended) | "small.en"
+WHISPER_MODEL         = "tiny.en"   # "tiny.en" (fast) | "base.en" (recommended) | "small.en"
 VAD_AGGRESSIVENESS    = 2           # 0-3; higher cuts more background noise
 SILENCE_CUTOFF_MS     = 700         # ms of silence before recording stops
 MAX_RECORD_SECONDS    = 9

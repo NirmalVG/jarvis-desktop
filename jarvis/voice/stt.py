@@ -14,7 +14,7 @@ import webrtcvad
 from faster_whisper import WhisperModel
 
 SAMPLE_RATE = 16_000
-FRAME_MS    = 30
+FRAME_MS    = 20  # Reduced for faster response
 FRAME_SIZE  = int(SAMPLE_RATE * FRAME_MS / 1000)   # 480 samples
 
 
