@@ -7,11 +7,10 @@
  *   1. Full-screen ambient dust particles (DustField)
  *   2. Blue-glowing particle orb (OrbZone) — centered
  *   3. Floating chat panel (TranscriptFeed) — left side
- *   4. Sidebar navigation — far left edge
- *   5. TitleBar — top
- *   6. Stats overlay — top right corner
- *   7. Status indicator — bottom right corner
- *   8. Command palette (Ctrl+K)
+ *   4. TitleBar — top
+ *   5. Stats overlay — top right corner
+ *   6. Status indicator — bottom right corner
+ *   7. Command palette (Ctrl+K)
  */
 
 import { useState, useEffect, useCallback } from "react"
@@ -20,7 +19,6 @@ import TitleBar from "./components/TitleBar"
 import OrbZone from "./components/OrbZone"
 import TranscriptFeed from "./components/TranscriptFeed"
 import DustField from "./components/DustField"
-import Sidebar from "./components/Sidebar"
 import StateBar from "./components/StateBar"
 import CommandPalette from "./components/CommandPalette"
 
@@ -91,9 +89,6 @@ export default function App() {
         clickthrough={clickthrough}
         acc={ACC}
       />
-
-      {/* Layer 3: Sidebar navigation */}
-      <Sidebar acc={ACC} />
 
       {/* Dev mode state switcher */}
       {isDevMode && (
