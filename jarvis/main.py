@@ -40,6 +40,7 @@ from actuation.actions import Actuator
 from brain.groq_brain  import GroqBrain
 from memory.store      import MemoryStore
 from services.web_search import format_results, search_web, technology_headlines, create_intelligent_news_summary, get_single_global_headline, create_single_headline_briefing
+from services.coding_service import coding_service
 from voice.stt         import STT
 from voice.tts         import TTS
 
@@ -543,6 +544,96 @@ def handle_command(user_text, session_id, brain, actuator, tts, store) -> bool:
             actuator.volume_mute()
         hud_emit("SPEAKING", transcript=user_text,
                  reply=f"Volume {volume_action}.", stats=store.stats())
+        return True
+
+    # ── Coding & Development Actions ─────────────────────────────────────
+    create_project = GroqBrain.parse_create_project(reply)
+    if create_project:
+        project_type, project_name = create_project
+        hud_emit("THINKING", transcript=user_text, reply=f"Creating {project_type} project '{project_name}'...")
+        result = coding_service.create_project(project_type, project_name)
+        
+        if result["status"] == "success":
+            response = f"Successfully created {project_type} project '{project_name}' at {result['path']}"
+            if result.get("setup_commands"):
+                response += f". Setup commands: {'; '.join(result['setup_commands'])}"
+        else:
+            response = f"Failed to create project: {result['message']}"
+        
+        store.save_turn("user", user_text, session_id)
+        store.save_turn("assistant", response, session_id)
+        hud_emit("SPEAKING", transcript=user_text, reply=response, stats=store.stats())
+        tts.speak(response)
+        return True
+
+    generate_code = GroqBrain.parse_generate_code(reply)
+    if generate_code:
+        language, template_name = generate_code
+        hud_emit("THINKING", transcript=user_text, reply=f"Generating {language} code from template '{template_name}'...")
+        result = coding_service.generate_code(language, template_name)
+        
+        if result["status"] == "success":
+            response = f"Generated {language} code from template '{template_name}'. The code is ready to use."
+            # Save the generated code to a file
+            filename = f"generated_{template_name}.{language}"
+            if language == "typescript":
+                filename = f"generated_{template_name}.tsx"
+            elif language == "python":
+                filename = f"generated_{template_name}.py"
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(result["code"])
+            
+            response += f" Saved to {filename}"
+        else:
+            response = f"Failed to generate code: {result['message']}"
+        
+        store.save_turn("user", user_text, session_id)
+        store.save_turn("assistant", response, session_id)
+        hud_emit("SPEAKING", transcript=user_text, reply=response, stats=store.stats())
+        tts.speak(response)
+        return True
+
+    setup_vscode = GroqBrain.parse_setup_vscode(reply)
+    if setup_vscode:
+        language = setup_vscode
+        hud_emit("THINKING", transcript=user_text, reply=f"Setting up VS Code for {language}...")
+        result = coding_service.setup_vscode(language)
+        
+        if result["status"] == "success":
+            response = f"VS Code setup for {language} completed. Settings and extensions configured."
+        else:
+            response = f"Failed to setup VS Code: {result['message']}"
+        
+        store.save_turn("user", user_text, session_id)
+        store.save_turn("assistant", response, session_id)
+        hud_emit("SPEAKING", transcript=user_text, reply=response, stats=store.stats())
+        tts.speak(response)
+        return True
+
+    install_extensions = GroqBrain.parse_install_extensions(reply)
+    if install_extensions:
+        extensions_list = install_extensions.split(',')
+        hud_emit("THINKING", transcript=user_text, reply="Getting VS Code extension recommendations...")
+        
+        extensions = coding_service.get_extension_recommendations()
+        response = "Recommended VS Code extensions: "
+        
+        if extensions_list[0] == "all":
+            # List all recommended extensions
+            ext_names = [ext["name"] for ext in extensions if ext["recommended"]]
+            response += ", ".join(ext_names[:10])  # Limit to first 10
+        else:
+            # List specific categories
+            for category in extensions_list:
+                category_exts = [ext["name"] for ext in extensions if ext["category"] == category]
+                if category_exts:
+                    response += f"\n{category.title()}: {', '.join(category_exts)}"
+        
+        store.save_turn("user", user_text, session_id)
+        store.save_turn("assistant", response, session_id)
+        hud_emit("SPEAKING", transcript=user_text, reply=response, stats=store.stats())
+        tts.speak(response)
         return True
 
     # ── Plain spoken reply ────────────────────────────────────────────────

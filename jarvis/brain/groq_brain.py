@@ -22,6 +22,10 @@ import config as cfg
 from memory.store import MemoryStore
 from .advanced_understanding import advanced_understanding, UnderstandingResult
 from .intelligent_researcher import intelligent_researcher, ResearchResult
+from .product_engineering import product_engineering
+from .nextjs_expertise import nextjs_expertise
+from .fastapi_expertise import fastapi_expertise
+from .coding_buddy import coding_buddy
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -121,16 +125,61 @@ Storing a fact about the operator:
   Use this whenever the operator tells you something persistent about themselves.
   Keys: user_name, preferred_editor, current_project, preferred_language, location
 
+Coding & Development Actions:
+  [CREATE_PROJECT: type | name] — Create a new project (nextjs, fastapi, react_library)
+  [GENERATE_CODE: language | template] — Generate code from template
+  [SETUP_VSCODE: language] — Generate VS Code settings and recommendations
+  [INSTALL_EXTENSIONS: list] — List recommended VS Code extensions
+
+Project Templates Available:
+  • nextjs: Full-stack Next.js app with auth and database
+  • fastapi: Production-ready FastAPI microservice
+  • react_library: Reusable React component library
+
+Code Generation Templates:
+  • react_component: Modern React functional component
+  • fastapi_endpoint: Production-ready API endpoint
+  • nextjs_page: Next.js page with data fetching
+  • python_class: Well-structured Python class
+
 Only use ONE action tag per response.  If the request implies multiple actions,
 ask which the operator wants first.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-KNOWLEDGE DOMAINS  (answer confidently without hedging)
+COMPREHENSIVE KNOWLEDGE DOMAINS  (answer confidently without hedging)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Software engineering — React, Next.js, TypeScript, Python, system design
-AI/ML — model architectures, prompt engineering, inference optimisation
-Kerala & Mollywood — geography, culture, cinema, classical arts
-Product management — PRDs, roadmaps, user research, metrics
+
+SOFTWARE ENGINEERING & WEB DEVELOPMENT
+• Frontend: React, Next.js (App Router, Server Components), TypeScript, Tailwind CSS
+• Backend: Python FastAPI, Node.js, REST APIs, GraphQL, WebSocket integration
+• Database: PostgreSQL, MongoDB, Prisma ORM, SQLAlchemy, database design patterns
+• DevOps: Docker, Kubernetes, CI/CD pipelines, cloud deployment (AWS, Vercel, Railway)
+• Testing: Unit testing, integration testing, E2E testing, test-driven development
+
+PRODUCT ENGINEERING & MANAGEMENT
+• System architecture & design patterns (microservices, event-driven, serverless)
+• Product lifecycle management, PRD creation, roadmap planning, user research
+• Agile methodologies, sprint planning, backlog management, stakeholder communication
+• Performance optimization, scalability planning, monitoring & observability
+• Security best practices, authentication, authorization, data protection
+
+CODING BUDDY & DEVELOPMENT WORKFLOW
+• VS Code integration, extension recommendations, workspace optimization
+• Project scaffolding and template generation (Next.js, FastAPI, React libraries)
+• Code review best practices, refactoring strategies, technical debt management
+• API design patterns, error handling, logging, debugging techniques
+• Modern development tools: Git workflows, package management, environment setup
+
+AI/ML & MODERN TECHNOLOGY
+• Model architectures, prompt engineering, inference optimisation
+• Machine learning pipelines, data preprocessing, model deployment
+• AI integration patterns, LLM applications, vector databases
+• Emerging tech: edge computing, serverless, WebAssembly, progressive web apps
+
+DOMAIN KNOWLEDGE
+• Kerala & Mollywood — geography, culture, cinema, classical arts
+• Business analysis, metrics interpretation, data-driven decision making
+• Technical writing, documentation best practices, knowledge sharing
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TIME AWARENESS  (injected dynamically below)
@@ -485,4 +534,28 @@ Related Topics: {', '.join(research_result.related_topics[:3])}
     def parse_volume(reply: str) -> str | None:
         """Extract volume action from [VOLUME: up/down/mute], or None."""
         m = re.search(r"\[VOLUME:\s*(up|down|mute)\]", reply, re.IGNORECASE)
+        return m.group(1).strip().lower() if m else None
+
+    @staticmethod
+    def parse_create_project(reply: str) -> tuple[str, str] | None:
+        """Extract (project_type, project_name) from [CREATE_PROJECT: type | name], or None."""
+        m = re.search(r"\[CREATE_PROJECT:\s*(.*?)\s*\|\s*(.*?)\]", reply, re.IGNORECASE)
+        return (m.group(1).strip().lower(), m.group(2).strip()) if m else None
+
+    @staticmethod
+    def parse_generate_code(reply: str) -> tuple[str, str] | None:
+        """Extract (language, template) from [GENERATE_CODE: language | template], or None."""
+        m = re.search(r"\[GENERATE_CODE:\s*(.*?)\s*\|\s*(.*?)\]", reply, re.IGNORECASE)
+        return (m.group(1).strip().lower(), m.group(2).strip()) if m else None
+
+    @staticmethod
+    def parse_setup_vscode(reply: str) -> str | None:
+        """Extract language from [SETUP_VSCODE: language], or None."""
+        m = re.search(r"\[SETUP_VSCODE:\s*(.*?)\]", reply, re.IGNORECASE)
+        return m.group(1).strip().lower() if m else None
+
+    @staticmethod
+    def parse_install_extensions(reply: str) -> str | None:
+        """Extract extension list from [INSTALL_EXTENSIONS: list], or None."""
+        m = re.search(r"\[INSTALL_EXTENSIONS:\s*(.*?)\]", reply, re.IGNORECASE)
         return m.group(1).strip().lower() if m else None
