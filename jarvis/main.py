@@ -39,7 +39,7 @@ import config as cfg
 from actuation.actions import Actuator
 from brain.groq_brain  import GroqBrain
 from memory.store      import MemoryStore
-from services.web_search import format_results, search_web, technology_headlines
+from services.web_search import format_results, search_web, technology_headlines, create_intelligent_news_summary, get_single_global_headline, create_single_headline_briefing
 from voice.stt         import STT
 from voice.tts         import TTS
 
@@ -161,21 +161,16 @@ def _build_wake_fn():
 # ── System command fast-paths ─────────────────────────────────────────────────
 
 _SYSTEM_COMMANDS = {
-    "minimize window":  "minimize",
-    "minimize":         "minimize",
-    "maximize window":  "maximize",
-    "maximize":         "maximize",
-    "take screenshot":  "screenshot",
-    "screenshot":       "screenshot",
-    "take a screenshot":"screenshot",
-    "capture screen":   "screenshot",
-    "volume up":        "volume_up",
-    "turn up":          "volume_up",
-    "louder":           "volume_up",
-    "volume down":      "volume_down",
-    "turn down":        "volume_down",
-    "quieter":          "volume_down",
-    "mute":             "volume_mute",
+    "minimize window": (lambda a: a.minimize_active_window()),
+    "maximize window": (lambda a: a.maximize_active_window()),
+    "screenshot": (lambda a: a.take_screenshot()),
+    "volume up": (lambda a: a.volume_up()),
+    "volume down": (lambda a: a.volume_down()),
+    "mute volume": (lambda a: a.volume_mute()),
+    "unmute volume": (lambda a: a.volume_unmute()),
+    "launch hud": (lambda a: _launch_hud_application()),
+    "open hud": (lambda a: _launch_hud_application()),
+    "start hud": (lambda a: _launch_hud_application()),
     "unmute":           "volume_mute",
     "lock screen":      "lock",
     "lock computer":    "lock",
@@ -275,29 +270,110 @@ def _answer_from_web(query: str, session_id, brain, tts, store, transcript: str)
 
 
 def _speak_technology_briefing(brain, tts, store, session_id) -> None:
-    """Fetch and speak a short current technology briefing after wake."""
-    hud_emit("THINKING", reply="Scanning global technology headlines...")
+    """Fetch and speak a technology briefing based on configured style."""
+    # Choose message based on briefing style
+    briefing_style = getattr(cfg, 'NEWS_BRIEFING_STYLE', 'single')
+    if briefing_style == "single":
+        hud_emit("THINKING", reply="Scanning for major global technology developments...")
+    else:
+        hud_emit("THINKING", reply="Scanning global technology headlines...")
+    
+    briefing = None
     try:
-        results = technology_headlines(limit=3)
-        if results:
-            headlines = []
-            for result in results:
-                source = f" from {result.source}" if result.source else ""
-                headlines.append(f"{result.title}{source}")
-            briefing = "Top technology signals: " + " Next: ".join(headlines)
-            store.save_turn("assistant", briefing, session_id)
+        if briefing_style == "single":
+            # Get the single most important global headline
+            headline = get_single_global_headline()
+            
+            if headline:
+                # Create a focused briefing with global context
+                briefing = create_single_headline_briefing(headline, brain, store, session_id)
+            else:
+                briefing = "I couldn't find any major technology developments at the moment."
         else:
-            briefing = "I could not find fresh technology headlines just now."
-            store.save_turn("assistant", briefing, session_id)
+            # Multiple headlines mode (original behavior)
+            headline_count = getattr(cfg, 'NEWS_HEADLINE_COUNT', 5)
+            results = technology_headlines(limit=headline_count)
+            
+            if results:
+                briefing = create_intelligent_news_summary(results, brain, store, session_id)
+            else:
+                briefing = "I couldn't find any fresh technology headlines at the moment."
+            
     except Exception as exc:
-        briefing = (
-            "I could not reach the live technology brief just now. "
-            f"Web error: {exc}"
-        )
-        store.save_turn("assistant", briefing, session_id)
-
+        # Provide different messages based on error type
+        error_msg = str(exc).lower()
+        if "timeout" in error_msg or "timed out" in error_msg:
+            briefing = "The news servers are responding slowly at the moment. I'll try again later."
+        elif "network" in error_msg or "connection" in error_msg:
+            briefing = "I'm having trouble reaching the news feeds right now. Network connectivity appears limited."
+        else:
+            briefing = "I encountered an issue accessing the technology briefing. Let me try a different approach."
+    
+    # Final fallback if all else fails
+    if not briefing:
+        briefing = "Good morning. I'm ready to assist you with any technology questions or tasks you may have."
+    
+    store.save_turn("assistant", briefing, session_id)
     hud_emit("SPEAKING", reply=briefing, stats=store.stats())
     tts.speak(briefing)
+
+
+def _launch_hud_application() -> None:
+    """Launch the Electron HUD application."""
+    import subprocess
+    import sys
+    import os
+    
+    try:
+        # Determine the HUD directory path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        jarvis_root = os.path.dirname(current_dir)
+        hud_dir = os.path.join(jarvis_root, "jarvis-hud")
+        
+        if not os.path.exists(hud_dir):
+            print("⚠️  HUD directory not found. Skipping HUD launch.")
+            return
+        
+        print("🖥️  Launching Electron HUD...")
+        print("   (This may take 10-15 seconds to start the Electron app)")
+        
+        # Try different methods to launch the HUD
+        if sys.platform == "win32":
+            # Windows: Use npm run electron:dev for full Electron app
+            electron_dev_cmd = ["npm", "run", "electron:dev"]
+            electron_cmd = ["npm", "run", "electron"]
+            fallback_cmd = ["npx", "electron", "."]
+            
+            # Try npm run electron:dev first (starts both dev server and Electron)
+            try:
+                subprocess.Popen(electron_dev_cmd, cwd=hud_dir, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                print("✅  HUD launched via npm run electron:dev")
+            except Exception:
+                try:
+                    # Fallback to npm run electron (needs dev server running)
+                    subprocess.Popen(electron_cmd, cwd=hud_dir, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                    print("✅  HUD launched via npm run electron")
+                except Exception:
+                    try:
+                        # Last fallback to direct electron launch
+                        subprocess.Popen(fallback_cmd, cwd=hud_dir, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                        print("✅  HUD launched via direct electron")
+                    except Exception as e:
+                        print(f"⚠️  Could not launch HUD: {e}")
+        else:
+            # Linux/Mac: Use npm run electron:dev
+            try:
+                subprocess.Popen(["npm", "run", "electron:dev"], cwd=hud_dir, shell=False)
+                print("✅  HUD launched via npm run electron:dev")
+            except Exception:
+                try:
+                    subprocess.Popen(["npm", "run", "electron"], cwd=hud_dir, shell=False)
+                    print("✅  HUD launched via npm run electron")
+                except Exception as e:
+                    print(f"⚠️  Could not launch HUD: {e}")
+            
+    except Exception as e:
+        print(f"⚠️  HUD launch failed: {e}")
 
 
 def _handle_system_command(clean: str, actuator, tts, store, session_id) -> bool | None:
@@ -496,8 +572,12 @@ def main():
         wake_fn()
     hud_emit("LISTENING")
     tts.speak("JARVIS online.")
+    
+    # Auto-open Electron HUD if configured
+    if cfg.AUTO_OPEN_HUD:
+        _launch_hud_application()
+    
     if cfg.STARTUP_TECH_BRIEFING:
-        tts.speak("Scanning current technology signals.")
         _speak_technology_briefing(brain, tts, store, session_id)
     tts.speak("Ready when you are.")
     print("\n✅  Session active. Say 'goodbye' to end.\n")

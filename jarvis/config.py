@@ -34,6 +34,31 @@ WAKE_MODE = "clap"
 AUTO_START_CONVERSATION = True
 STARTUP_TECH_BRIEFING = True
 
+# ── Technology News Configuration ────────────────────────────────────────────────
+# Enable intelligent news summarization using the Groq brain
+INTELLIGENT_NEWS_SUMMARY = True
+
+# Number of headlines to fetch for processing (more headlines = better summaries)
+NEWS_HEADLINE_COUNT = 5
+
+# News categories to focus on (comma-separated string)
+NEWS_CATEGORIES = "technology,artificial intelligence,machine learning,chips,cybersecurity,startups,software,cloud computing"
+
+# Minimum headline length to filter out short/low-quality content
+MIN_HEADLINE_LENGTH = 15
+
+# Enable filtering of promotional/sponsored content
+FILTER_PROMOTIONAL_CONTENT = True
+
+# Disable tech briefing after consecutive network errors (prevents startup delays)
+DISABLE_BRIEFING_ON_NETWORK_ERROR = False
+
+# News briefing style: "single" for one major story with global context, "multiple" for several headlines
+NEWS_BRIEFING_STYLE = "single"
+
+# Automatically open Electron HUD when Jarvis comes online
+AUTO_OPEN_HUD = True
+
 # Only used when WAKE_MODE = "keyword"
 # Built-in options (no download): "alexa", "hey_mycroft", "hey_rhasspy"
 # Custom model:  path to your trained .onnx file, e.g. "./models/hey_jarvis.onnx"
