@@ -369,29 +369,28 @@ def _launch_hud_application() -> None:
         print("🖥️  Launching Electron HUD...")
         print("   (This may take 10-15 seconds to start the Electron app)")
         
-        # Try different methods to launch the HUD
+        # Launch HUD with controlled startup to prevent duplicates
         if sys.platform == "win32":
-            # Windows: Use npm run electron:dev for full Electron app
-            electron_dev_cmd = ["npm", "run", "electron:dev"]
+            # Start Vite dev server first
+            dev_server_cmd = ["npm", "run", "dev"]
             electron_cmd = ["npm", "run", "electron"]
-            fallback_cmd = ["npx", "electron", "."]
             
-            # Try npm run electron:dev first (starts both dev server and Electron)
             try:
-                subprocess.Popen(electron_dev_cmd, cwd=hud_dir, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                print("✅  HUD launched via npm run electron:dev")
-            except Exception:
-                try:
-                    # Fallback to npm run electron (needs dev server running)
-                    subprocess.Popen(electron_cmd, cwd=hud_dir, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                    print("✅  HUD launched via npm run electron")
-                except Exception:
-                    try:
-                        # Last fallback to direct electron launch
-                        subprocess.Popen(fallback_cmd, cwd=hud_dir, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                        print("✅  HUD launched via direct electron")
-                    except Exception as e:
-                        print(f"⚠️  Could not launch HUD: {e}")
+                # Start dev server in background (no console)
+                dev_process = subprocess.Popen(dev_server_cmd, cwd=hud_dir, shell=True, 
+                                              creationflags=subprocess.CREATE_NO_WINDOW)
+                
+                # Wait a moment for dev server to start
+                import time
+                time.sleep(3)
+                
+                # Then launch Electron app
+                subprocess.Popen(electron_cmd, cwd=hud_dir, shell=True, 
+                               creationflags=subprocess.CREATE_NEW_CONSOLE)
+                print("✅  HUD launched with controlled startup")
+                
+            except Exception as e:
+                print(f"⚠️  Could not launch HUD: {e}")
         else:
             # Linux/Mac: Use npm run electron:dev
             try:
