@@ -131,6 +131,10 @@ class HUDBridge:
     def get_command_history(self) -> list[dict]:
         """Return the last 50 commands for HUD display."""
         return list(self._command_history)
+    
+    def has_clients(self) -> bool:
+        """Check if any HUD clients are currently connected."""
+        return len(self._clients) > 0
 
     # ── Private ───────────────────────────────────────────────────────────────
 

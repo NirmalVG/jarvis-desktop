@@ -274,6 +274,22 @@ def _answer_from_web(query: str, session_id, brain, tts, store, transcript: str)
     return True
 
 
+def _wait_for_hud_connection(timeout_seconds=15) -> bool:
+    """Wait for HUD client to connect before starting briefing."""
+    import time
+    start_time = time.time()
+    
+    print("  🖥️  Waiting for HUD connection...")
+    while time.time() - start_time < timeout_seconds:
+        if _bridge and _bridge.has_clients():
+            print("  ✅  HUD client connected.")
+            return True
+        time.sleep(0.5)
+    
+    print("  ⚠️  HUD connection timeout. Proceeding without HUD display.")
+    return False
+
+
 def _speak_technology_briefing(brain, tts, store, session_id) -> None:
     """Fetch and speak a technology briefing based on configured style."""
     # Choose message based on briefing style
@@ -324,7 +340,13 @@ def _speak_technology_briefing(brain, tts, store, session_id) -> None:
         briefing = "Good morning. I'm ready to assist you with any technology questions or tasks you may have."
     
     store.save_turn("assistant", briefing, session_id)
-    hud_emit("SPEAKING", reply=briefing, stats=store.stats())
+    
+    # Emit briefing to HUD as a special message type
+    if _bridge and _bridge.has_clients():
+        hud_emit("THINKING", reply="Displaying technology briefing...", stats=store.stats())
+        # Send briefing as a special HUD message
+        hud_emit("SPEAKING", transcript="Technology Briefing", reply=briefing, stats=store.stats())
+    
     tts.speak(briefing)
 
 
@@ -676,6 +698,8 @@ def main():
     
     if cfg.STARTUP_TECH_BRIEFING:
         try:
+            # Wait for HUD connection before starting briefing
+            hud_connected = _wait_for_hud_connection()
             _speak_technology_briefing(brain, tts, store, session_id)
         except Exception as exc:
             print(f"  [WARN] Technology briefing failed: {exc}")
