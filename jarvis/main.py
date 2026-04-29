@@ -122,10 +122,6 @@ def boot():
 
     print("  [6/7] HUD bridge...")
     _init_bridge()
-    
-    # Launch Electron HUD immediately if configured
-    if cfg.AUTO_OPEN_HUD:
-        _launch_hud_application()
 
     print("  [7/7] Vision engine...")
     _init_vision()
@@ -692,6 +688,11 @@ def main():
         clap_type = "Single clap" if not getattr(cfg, 'CLAP_DOUBLE', False) else "Double-clap"
         print(f"👋  {clap_type} to activate Jarvis...")
         wake_fn()
+        
+        # Launch Electron HUD after successful wake gesture
+        if cfg.AUTO_OPEN_HUD:
+            _launch_hud_application()
+    
     hud_emit("LISTENING")
     tts.speak("JARVIS online.")
     
