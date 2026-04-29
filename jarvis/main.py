@@ -122,6 +122,10 @@ def boot():
 
     print("  [6/7] HUD bridge...")
     _init_bridge()
+    
+    # Launch Electron HUD immediately if configured
+    if cfg.AUTO_OPEN_HUD:
+        _launch_hud_application()
 
     print("  [7/7] Vision engine...")
     _init_vision()
@@ -670,12 +674,12 @@ def main():
     hud_emit("LISTENING")
     tts.speak("JARVIS online.")
     
-    # Auto-open Electron HUD if configured
-    if cfg.AUTO_OPEN_HUD:
-        _launch_hud_application()
-    
     if cfg.STARTUP_TECH_BRIEFING:
-        _speak_technology_briefing(brain, tts, store, session_id)
+        try:
+            _speak_technology_briefing(brain, tts, store, session_id)
+        except Exception as exc:
+            print(f"  [WARN] Technology briefing failed: {exc}")
+            print("           Continuing with normal operation...")
     tts.speak("Ready when you are.")
     print("\n✅  Session active. Say 'goodbye' to end.\n")
 

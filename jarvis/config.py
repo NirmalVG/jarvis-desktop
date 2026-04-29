@@ -37,10 +37,10 @@ STARTUP_TECH_BRIEFING = True
 # ── Senior Software Engineer Speed Optimizations ───────────────────────────────────
 # Ultra-fast response configuration
 FAST_RESPONSE_MODE = True
-CLAP_DOUBLE = False        # Single clap for instant activation
-CLAP_MIN_GAP_MS = 100      # Faster double-clap window if needed
-CLAP_MAX_GAP_MS = 400      # Reduced window for quicker detection
-CLAP_SENSITIVITY = 2.5     # More sensitive for faster trigger
+CLAP_DOUBLE = True         # Double clap required for activation
+CLAP_MIN_GAP_MS = 150      # Minimum gap between claps
+CLAP_MAX_GAP_MS = 600      # Maximum gap between claps
+CLAP_SENSITIVITY = 3.0     # Less sensitive to prevent false triggers
 
 # ── Technology News Configuration ────────────────────────────────────────────────
 # Enable intelligent news summarization using the Groq brain

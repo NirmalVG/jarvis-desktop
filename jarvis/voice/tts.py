@@ -183,7 +183,7 @@ class TTS:
 
     def _timeout_for(self, text: str) -> int:
         """Give long briefings enough time to finish speaking."""
-        return max(45, min(180, 20 + len(text) // 12))
+        return max(60, min(240, 30 + len(text) // 10))
 
     def _stop_edge_playback(self) -> None:
         try:
