@@ -32,7 +32,7 @@ WAKE_MODE = "clap"
 # True: speak the technology briefing immediately, then begin normal conversation.
 # False: wait for the configured wake trigger before speaking/listening.
 AUTO_START_CONVERSATION = False
-STARTUP_TECH_BRIEFING = False
+STARTUP_TECH_BRIEFING = True
 
 # ── Senior Software Engineer Speed Optimizations ───────────────────────────────────
 # Ultra-fast response configuration
@@ -61,8 +61,8 @@ FILTER_PROMOTIONAL_CONTENT = True
 # Disable tech briefing after consecutive network errors (prevents startup delays)
 DISABLE_BRIEFING_ON_NETWORK_ERROR = False
 
-# News briefing style: "single" for one major story with global context, "multiple" for several headlines
-NEWS_BRIEFING_STYLE = "single"
+# News briefing style: "single" for one major story with global context, "multiple" for several headlines, "60second" for comprehensive briefing
+NEWS_BRIEFING_STYLE = "60second"
 
 # Automatically open Electron HUD when Jarvis comes online
 AUTO_OPEN_HUD = True

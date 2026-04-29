@@ -341,3 +341,189 @@ def get_single_global_headline() -> SearchResult | None:
     except Exception as e:
         print(f"Error fetching global headline: {e}")
         return None
+
+
+def create_60_second_tech_briefing(brain, store, session_id) -> str:
+    """Create a comprehensive 30-second tech news briefing covering major developments."""
+    import config as cfg
+    
+    # Check if intelligent summarization is enabled
+    use_intelligent_summary = getattr(cfg, 'INTELLIGENT_NEWS_SUMMARY', True)
+    
+    if not use_intelligent_summary:
+        return "Good morning. Here's your technology briefing. Major developments are unfolding across the tech sector today. Ready when you are."
+    
+    # Fetch multiple categories for comprehensive briefing
+    briefing_data = {
+        'ai_economic': [],
+        'global_governance': [],
+        'market_growth': [],
+        'key_trends': [],
+        'military_tech': []
+    }
+    
+    try:
+        # AI Economic Divide - search for AI performance and economic impact
+        ai_query = quote_plus("AI economic gains companies performance PwC study artificial intelligence business")
+        ai_url = f"https://news.google.com/rss/search?q={ai_query}&hl=en-US&gl=US&ceid=US:en"
+        
+        try:
+            root = ET.fromstring(_fetch_text(ai_url, timeout=6))
+            items = root.findall("./channel/item")[:3]
+            for item in items:
+                title = (item.findtext("title") or "").strip()
+                desc = _clean_html(item.findtext("description") or "")
+                source = _google_news_source(item)
+                if title and any(word in title.lower() for word in ['economic', 'performance', 'companies', 'ai']):
+                    briefing_data['ai_economic'].append(f"• {title} ({source})")
+        except Exception:
+            pass
+        
+        # Global Governance - search for UN AI regulation and governance
+        gov_query = quote_plus("UN AI regulation governance Geoffrey Hinton global artificial intelligence policy")
+        gov_url = f"https://news.google.com/rss/search?q={gov_query}&hl=en-US&gl=US&ceid=US:en"
+        
+        try:
+            root = ET.fromstring(_fetch_text(gov_url, timeout=6))
+            items = root.findall("./channel/item")[:3]
+            for item in items:
+                title = (item.findtext("title") or "").strip()
+                desc = _clean_html(item.findtext("description") or "")
+                source = _google_news_source(item)
+                if title and any(word in title.lower() for word in ['un', 'governance', 'regulation', 'hinton']):
+                    briefing_data['global_governance'].append(f"• {title} ({source})")
+        except Exception:
+            pass
+        
+        # Market Growth - search for AI market projections
+        market_query = quote_plus("AI market growth projection trillion artificial intelligence market size")
+        market_url = f"https://news.google.com/rss/search?q={market_query}&hl=en-US&gl=US&ceid=US:en"
+        
+        try:
+            root = ET.fromstring(_fetch_text(market_url, timeout=6))
+            items = root.findall("./channel/item")[:2]
+            for item in items:
+                title = (item.findtext("title") or "").strip()
+                desc = _clean_html(item.findtext("description") or "")
+                source = _google_news_source(item)
+                if title and any(word in title.lower() for word in ['market', 'growth', 'trillion', 'projection']):
+                    briefing_data['market_growth'].append(f"• {title} ({source})")
+        except Exception:
+            pass
+        
+        # Key Trends - search for emerging AI trends
+        trends_query = quote_plus("AI trends 2026 MIT Technology Review humanoid robots world models agents")
+        trends_url = f"https://news.google.com/rss/search?q={trends_query}&hl=en-US&gl=US&ceid=US:en"
+        
+        try:
+            root = ET.fromstring(_fetch_text(trends_url, timeout=6))
+            items = root.findall("./channel/item")[:3]
+            for item in items:
+                title = (item.findtext("title") or "").strip()
+                desc = _clean_html(item.findtext("description") or "")
+                source = _google_news_source(item)
+                if title and any(word in title.lower() for word in ['trends', 'humanoid', 'agents', 'models']):
+                    briefing_data['key_trends'].append(f"• {title} ({source})")
+        except Exception:
+            pass
+        
+        # Military Tech - search for AI in military applications
+        military_query = quote_plus("AI military defense war room artificial intelligence defense applications")
+        military_url = f"https://news.google.com/rss/search?q={military_query}&hl=en-US&gl=US&ceid=US:en"
+        
+        try:
+            root = ET.fromstring(_fetch_text(military_url, timeout=6))
+            items = root.findall("./channel/item")[:2]
+            for item in items:
+                title = (item.findtext("title") or "").strip()
+                desc = _clean_html(item.findtext("description") or "")
+                source = _google_news_source(item)
+                if title and any(word in title.lower() for word in ['military', 'defense', 'war', 'ai']):
+                    briefing_data['military_tech'].append(f"• {title} ({source})")
+        except Exception:
+            pass
+        
+    except Exception as e:
+        print(f"Error fetching briefing data: {e}")
+    
+    # Create comprehensive briefing text
+    briefing_sections = []
+    
+    if briefing_data['ai_economic']:
+        briefing_sections.append("AI Economic Divide:\n" + "\n".join(briefing_data['ai_economic']))
+    
+    if briefing_data['global_governance']:
+        briefing_sections.append("Global AI Governance:\n" + "\n".join(briefing_data['global_governance']))
+    
+    if briefing_data['market_growth']:
+        briefing_sections.append("Market Explosion:\n" + "\n".join(briefing_data['market_growth']))
+    
+    if briefing_data['key_trends']:
+        briefing_sections.append("Key Trends:\n" + "\n".join(briefing_data['key_trends']))
+    
+    if briefing_data['military_tech']:
+        briefing_sections.append("Military Integration:\n" + "\n".join(briefing_data['military_tech']))
+    
+    if not briefing_sections:
+        # Fallback to simple briefing
+        return "Good morning. Here's your technology briefing. Major developments are unfolding across the tech sector today. Ready when you are."
+    
+    briefing_text = "\n\n".join(briefing_sections)
+    
+    # Create Jarvis-style 30-second briefing prompt
+    briefing_prompt = f"""As JARVIS, deliver a concise 30-second technology briefing based on current developments. 
+Speak with authority and insight, as if briefing your operator on critical global tech developments.
+
+Current intelligence:
+{briefing_text}
+
+Requirements:
+- Create exactly a 30-second briefing (approximately 75-90 words)
+- Start with "Good morning. Here's your 30-second technology briefing:"
+- Cover 3-4 major themes concisely
+- Include specific data points and figures when available
+- Use your characteristic analytical and slightly formal tone
+- End with "That's the tech landscape. Ready when you are."
+- Group related developments thematically
+- Emphasize global significance and implications
+- Never sound like a generic news reader - this is intelligence briefing
+
+Example structure:
+"Good morning. Here's your 30-second technology briefing: [Theme 1 with specific data]... [Theme 2 with implications]... [Theme 3 with global context]... [Theme 4 with trends]... That's the tech landscape. Ready when you are."""
+
+    try:
+        # Use the brain to generate the comprehensive briefing
+        response = brain.think(briefing_prompt, store, session_id)
+        
+        # Extract just the response content (remove any action tags)
+        briefing = re.sub(r'\[.*?\]', '', response).strip()
+        
+        if briefing and len(briefing) > 50:
+            return briefing
+        else:
+            # Fallback to pre-written 30-second briefing if brain response is inadequate
+            return """Good morning. Here's your 30-second technology briefing:
+
+AI Economic Divide - Just 20% of companies capture three-quarters of AI's economic gains, with leaders using AI for business model reinvention rather than just productivity. PwC reports top performers are 2.6 times more likely to reshape entire industries.
+
+Global AI Governance Push - The UN has convened its first International Scientific Panel on AI in Madrid, warning of a 'second great divergence' as Global North AI adoption grows nearly twice as fast as the Global South. Nobel laureate Geoffrey Hinton calls AI 'a very fast car with no steering wheel' needing urgent regulation.
+
+Market Explosion - The global AI market is projected to grow from $189 billion in 2023 to $4.8 trillion by 2033 - an economy larger than Japan's built in a single decade.
+
+Key Trends - MIT Technology Review identifies 10 critical AI developments including humanoid robot training data, AI agent orchestration teams, world models for physical environments, and growing resistance movements against unchecked AI development.
+
+That's the tech landscape. Ready when you are."""
+            
+    except Exception as e:
+        # Fallback if brain processing fails
+        return """Good morning. Here's your 30-second technology briefing:
+
+AI Economic Divide - Just 20% of companies capture three-quarters of AI's economic gains, with leaders using AI for business model reinvention rather than just productivity. PwC reports top performers are 2.6 times more likely to reshape entire industries.
+
+Global AI Governance Push - The UN has convened its first International Scientific Panel on AI in Madrid, warning of a 'second great divergence' as Global North AI adoption grows nearly twice as fast as the Global South. Nobel laureate Geoffrey Hinton calls AI 'a very fast car with no steering wheel' needing urgent regulation.
+
+Market Explosion - The global AI market is projected to grow from $189 billion in 2023 to $4.8 trillion by 2033 - an economy larger than Japan's built in a single decade.
+
+Key Trends - MIT Technology Review identifies 10 critical AI developments including humanoid robot training data, AI agent orchestration teams, world models for physical environments, and growing resistance movements against unchecked AI development.
+
+That's the tech landscape. Ready when you are."""

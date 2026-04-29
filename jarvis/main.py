@@ -39,7 +39,7 @@ import config as cfg
 from actuation.actions import Actuator
 from brain.groq_brain  import GroqBrain
 from memory.store      import MemoryStore
-from services.web_search import format_results, search_web, technology_headlines, create_intelligent_news_summary, get_single_global_headline, create_single_headline_briefing
+from services.web_search import format_results, search_web, technology_headlines, create_intelligent_news_summary, get_single_global_headline, create_single_headline_briefing, create_60_second_tech_briefing
 from services.coding_service import coding_service
 from voice.stt         import STT
 from voice.tts         import TTS
@@ -276,12 +276,17 @@ def _speak_technology_briefing(brain, tts, store, session_id) -> None:
     briefing_style = getattr(cfg, 'NEWS_BRIEFING_STYLE', 'single')
     if briefing_style == "single":
         hud_emit("THINKING", reply="Scanning for major global technology developments...")
+    elif briefing_style == "60second":
+        hud_emit("THINKING", reply="Preparing concise 30-second technology briefing...")
     else:
         hud_emit("THINKING", reply="Scanning global technology headlines...")
     
     briefing = None
     try:
-        if briefing_style == "single":
+        if briefing_style == "60second":
+            # 30-second concise briefing
+            briefing = create_60_second_tech_briefing(brain, store, session_id)
+        elif briefing_style == "single":
             # Get the single most important global headline
             headline = get_single_global_headline()
             
