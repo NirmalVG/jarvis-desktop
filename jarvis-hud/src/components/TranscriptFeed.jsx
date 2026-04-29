@@ -9,20 +9,20 @@
  *   • "AWAITING INPUT..." blinking prompt at bottom
  *   • Glass-panel aesthetic with cyan border glow
  */
-import { useEffect, useRef, useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-const MAX = 14
+const MAX = 14;
 
 export default function TranscriptFeed({ transcript, reply, state }) {
-  const [entries, setEntries] = useState([])
-  const bottomRef = useRef(null)
+  const [entries, setEntries] = useState([]);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
-    if (!transcript || transcript.trim().length < 2) return
+    if (!transcript || transcript.trim().length < 2) return;
     setEntries((prev) => {
-      const last = prev[prev.length - 1]
-      if (last?.role === "user" && last.text === transcript) return prev
+      const last = prev[prev.length - 1];
+      if (last?.role === "user" && last.text === transcript) return prev;
       return [
         ...prev,
         {
@@ -30,15 +30,15 @@ export default function TranscriptFeed({ transcript, reply, state }) {
           role: "user",
           text: transcript,
         },
-      ].slice(-MAX)
-    })
-  }, [transcript])
+      ].slice(-MAX);
+    });
+  }, [transcript]);
 
   useEffect(() => {
-    if (!reply || reply.trim().length < 2) return
+    if (!reply || reply.trim().length < 2) return;
     setEntries((prev) => {
-      const last = prev[prev.length - 1]
-      if (last?.role === "jarvis" && last.text === reply) return prev
+      const last = prev[prev.length - 1];
+      if (last?.role === "jarvis" && last.text === reply) return prev;
       return [
         ...prev,
         {
@@ -46,15 +46,15 @@ export default function TranscriptFeed({ transcript, reply, state }) {
           role: "jarvis",
           text: reply,
         },
-      ].slice(-MAX)
-    })
-  }, [reply])
+      ].slice(-MAX);
+    });
+  }, [reply]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [entries])
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entries]);
 
-  const isThinking = state === "THINKING"
+  const isThinking = state === "THINKING";
 
   return (
     <div
@@ -81,14 +81,16 @@ export default function TranscriptFeed({ transcript, reply, state }) {
           borderRadius: 2,
           backdropFilter: "blur(8px)",
           overflow: "hidden",
-          boxShadow: "0 0 30px rgba(0,212,255,0.03), inset 0 0 30px rgba(0,0,0,0.3)",
+          boxShadow:
+            "0 0 30px rgba(0,212,255,0.03), inset 0 0 30px rgba(0,0,0,0.3)",
         }}
       >
         {/* Top edge glow line */}
         <div
           style={{
             height: 1,
-            background: "linear-gradient(90deg, transparent, rgba(0,212,255,0.3), rgba(0,212,255,0.5), rgba(0,212,255,0.3), transparent)",
+            background:
+              "linear-gradient(90deg, transparent, rgba(0,212,255,0.3), rgba(0,212,255,0.5), rgba(0,212,255,0.3), transparent)",
             flexShrink: 0,
           }}
         />
@@ -173,12 +175,24 @@ export default function TranscriptFeed({ transcript, reply, state }) {
               style={{ paddingLeft: 2 }}
             >
               <JarvisLabel />
-              <div style={{ display: "flex", gap: 4, alignItems: "center", paddingTop: 6, paddingLeft: 4 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 4,
+                  alignItems: "center",
+                  paddingTop: 6,
+                  paddingLeft: 4,
+                }}
+              >
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
                     animate={{ opacity: [0.2, 1, 0.2] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
+                    transition={{
+                      duration: 0.8,
+                      repeat: Infinity,
+                      delay: i * 0.2,
+                    }}
                     style={{
                       width: 5,
                       height: 5,
@@ -248,13 +262,14 @@ export default function TranscriptFeed({ transcript, reply, state }) {
         <div
           style={{
             height: 1,
-            background: "linear-gradient(90deg, transparent, rgba(0,212,255,0.2), rgba(0,212,255,0.3), rgba(0,212,255,0.2), transparent)",
+            background:
+              "linear-gradient(90deg, transparent, rgba(0,212,255,0.2), rgba(0,212,255,0.3), rgba(0,212,255,0.2), transparent)",
             flexShrink: 0,
           }}
         />
       </div>
     </div>
-  )
+  );
 }
 
 /* ── J.A.R.V.I.S. label badge ──────────────────────────────────────────────── */
@@ -277,12 +292,35 @@ function JarvisLabel() {
     >
       J.A.R.V.I.S.
     </span>
-  )
+  );
+}
+
+/* ── User label badge ─────────────────────────────────────────────────── */
+function UserLabel() {
+  return (
+    <span
+      style={{
+        fontFamily: "'Orbitron', monospace",
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: ".16em",
+        color: "#00ff88",
+        background: "rgba(0,255,136,0.08)",
+        border: "1px solid rgba(0,255,136,0.2)",
+        padding: "3px 10px",
+        borderRadius: 2,
+        display: "inline-block",
+        textShadow: "0 0 8px rgba(0,255,136,0.5)",
+      }}
+    >
+      Nirmal
+    </span>
+  );
 }
 
 /* ── Individual chat message ────────────────────────────────────────────────── */
 function ChatMessage({ entry }) {
-  const isUser = entry.role === "user"
+  const isUser = entry.role === "user";
 
   return (
     <motion.div
@@ -291,7 +329,7 @@ function ChatMessage({ entry }) {
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
     >
-      <JarvisLabel />
+      {isUser ? <UserLabel /> : <JarvisLabel />}
       <div style={{ marginTop: 6 }}>
         {isUser ? (
           /* User messages: plain floating text */
@@ -328,5 +366,5 @@ function ChatMessage({ entry }) {
         )}
       </div>
     </motion.div>
-  )
+  );
 }
