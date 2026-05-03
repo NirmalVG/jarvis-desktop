@@ -146,17 +146,21 @@ def _build_wake_fn():
         from wake.clap_detector import ClapDetector
         det = ClapDetector(
             sensitivity=cfg.CLAP_SENSITIVITY,
-            double_clap=getattr(cfg, 'CLAP_DOUBLE', False),
-            double_clap_min_ms=getattr(cfg, 'CLAP_MIN_GAP_MS', 150),
-            double_clap_max_ms=getattr(cfg, 'CLAP_MAX_GAP_MS', 800),
+            double_clap=cfg.CLAP_DOUBLE,
+            double_clap_min_ms=cfg.CLAP_MIN_GAP_MS,
+            double_clap_max_ms=cfg.CLAP_MAX_GAP_MS,
         )
         return det.listen
     elif cfg.WAKE_MODE == "keyword":
         from wake.keyword_detector import KeywordDetector
         det = KeywordDetector(model_name=cfg.KEYWORD_MODEL, threshold=cfg.KEYWORD_THRESHOLD)
         return det.listen
+    elif cfg.WAKE_MODE == "voice":
+        from wake.voice_detector import VoiceDetector
+        det = VoiceDetector(wake_phrase="hey jarvis")
+        return det.listen
     else:
-        raise ValueError(f"Unknown WAKE_MODE: {cfg.WAKE_MODE!r}. Must be 'clap' or 'keyword'.")
+        raise ValueError(f"Unknown WAKE_MODE: {cfg.WAKE_MODE!r}. Must be 'clap', 'keyword', or 'voice'.")
 
 
 # ── System command fast-paths ─────────────────────────────────────────────────

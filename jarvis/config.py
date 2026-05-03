@@ -26,6 +26,7 @@ if not GROQ_API_KEY:
 # ── Wake trigger ──────────────────────────────────────────────────────────────
 # "clap"    — double clap (fully offline, no keys, no signup)
 # "keyword" — openwakeword model  (also offline, no keys, no signup)
+# "voice"   — uses existing STT to listen for "Hey Jarvis"
 WAKE_MODE = "clap"
 
 # Startup behavior
@@ -35,12 +36,12 @@ AUTO_START_CONVERSATION = False
 STARTUP_TECH_BRIEFING = True
 
 # ── Senior Software Engineer Speed Optimizations ───────────────────────────────────
-# Ultra-fast response configuration
+# Ultra-fast response configuration with premium precision
 FAST_RESPONSE_MODE = True
 CLAP_DOUBLE = True         # Double clap required for activation
-CLAP_MIN_GAP_MS = 200      # Minimum gap between claps (more strict)
-CLAP_MAX_GAP_MS = 500      # Maximum gap between claps (narrower window)
-CLAP_SENSITIVITY = 3.5     # Even less sensitive to prevent false triggers
+CLAP_MIN_GAP_MS = 150      # Minimum gap between claps (optimized precision)
+CLAP_MAX_GAP_MS = 600      # Maximum gap between claps (premium window)
+CLAP_SENSITIVITY = 2.8     # Optimized sensitivity for high precision
 
 # ── Technology News Configuration ────────────────────────────────────────────────
 # Enable intelligent news summarization using the Groq brain
@@ -70,12 +71,14 @@ AUTO_OPEN_HUD = True
 # Only used when WAKE_MODE = "keyword"
 # Built-in options (no download): "alexa", "hey_mycroft", "hey_rhasspy"
 # Custom model:  path to your trained .onnx file, e.g. "./models/hey_jarvis.onnx"
-# See wake/keyword_detector.py for training instructions.
+# 
+# CURRENT SETUP: Uses "hey_mycroft" - say "Hey Mycroft" to wake Jarvis
+# TO USE "Hey Jarvis": Run python train_hey_jarvis.py to train a custom model
 KEYWORD_MODEL     = "hey_mycroft"
 KEYWORD_THRESHOLD = 0.5    # 0.0–1.0; lower = more sensitive
 
 # ── Clap detector tuning ──────────────────────────────────────────────────────
-CLAP_SENSITIVITY      = 2.0    # Ultra-sensitive for instant response (Senior Software Engineer optimized)
+CLAP_SENSITIVITY      = 2.8    # Premium precision optimized (Senior Software Engineer tuned)
 MAX_TOKENS = 80           # Minimized for ultra-fast responses
 MEMORY_HISTORY_LIMIT = 3   # Reduced for faster recall
 RESEARCH_DEPTH = "quick"   # Use quick research mode for speed
