@@ -27,7 +27,7 @@ const QUICK_ACTIONS = [
   { label: "Open ChatGPT", command: "open chatgpt", icon: "⬡" },
 ]
 
-export default function CommandPalette({ visible, onClose, acc = "#00d4ff" }) {
+export default function CommandPalette({ visible, onClose, onExecute, acc = "#00d4ff" }) {
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState(0)
   const inputRef = useRef(null)
@@ -57,8 +57,7 @@ export default function CommandPalette({ visible, onClose, acc = "#00d4ff" }) {
         e.preventDefault()
         setSelected((s) => Math.max(s - 1, 0))
       } else if (e.key === "Enter" && filtered[selected]) {
-        // In a full implementation, this would send the command to the Python backend
-        console.log("[CMD]", filtered[selected].command)
+        onExecute?.(filtered[selected].command)
         onClose?.()
       }
     },
@@ -186,7 +185,7 @@ export default function CommandPalette({ visible, onClose, acc = "#00d4ff" }) {
                 key={action.command}
                 onMouseEnter={() => setSelected(i)}
                 onClick={() => {
-                  console.log("[CMD]", action.command)
+                  onExecute?.(action.command)
                   onClose?.()
                 }}
                 style={{

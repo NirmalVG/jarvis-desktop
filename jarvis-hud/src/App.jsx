@@ -32,6 +32,8 @@ export default function App() {
     stats,
     connected,
     commandHistory,
+    systemInfo,
+    sendCommand,
   } = useJarvisState()
   const [clickthrough, setClickthrough] = useState(true)
   const [devOverride, setDevOverride] = useState(null)
@@ -113,8 +115,12 @@ export default function App() {
       <CommandPalette
         visible={paletteOpen}
         onClose={() => setPaletteOpen(false)}
+        onExecute={sendCommand}
         acc={ACC}
       />
+
+      {/* System Diagnostics — bottom left */}
+      <SystemDiagnostics info={systemInfo} connected={connected} />
 
       {/* Shortcut hint */}
       {!paletteOpen && (
@@ -262,6 +268,125 @@ function StatusDot({ state, connected }) {
           }}
         />
       </div>
+    </div>
+  )
+}
+
+// ─── System Diagnostics (bottom-left corner) ─────────────────────────────────
+function SystemDiagnostics({ info, connected }) {
+  if (!connected || !info) return null
+
+  const cpuColor =
+    info.cpu_percent > 80
+      ? "#ff4444"
+      : info.cpu_percent > 50
+        ? "#ff9500"
+        : "rgba(0,212,255,0.5)"
+  const memColor =
+    info.memory_percent > 85
+      ? "#ff4444"
+      : info.memory_percent > 60
+        ? "#ff9500"
+        : "rgba(0,212,255,0.5)"
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 20,
+        left: 20,
+        zIndex: 70,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "'Share Tech Mono', monospace",
+          fontSize: 8,
+          color: "rgba(0,212,255,0.25)",
+          letterSpacing: ".1em",
+          marginBottom: 6,
+        }}
+      >
+        SYSTEM DIAGNOSTICS
+      </div>
+
+      {/* CPU */}
+      <DiagBar label="CPU" value={info.cpu_percent} color={cpuColor} />
+
+      {/* Memory */}
+      <DiagBar label="MEM" value={info.memory_percent} color={memColor} />
+
+      {/* Uptime */}
+      {info.uptime_hours > 0 && (
+        <div
+          style={{
+            fontFamily: "'Share Tech Mono', monospace",
+            fontSize: 7,
+            color: "rgba(0,212,255,0.2)",
+            letterSpacing: ".06em",
+            marginTop: 4,
+          }}
+        >
+          UPTIME: {info.uptime_hours}h · {info.platform}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DiagBar({ label, value, color }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: 3,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "'Share Tech Mono', monospace",
+          fontSize: 7,
+          color: "rgba(0,212,255,0.3)",
+          letterSpacing: ".08em",
+          width: 22,
+        }}
+      >
+        {label}
+      </span>
+      <div
+        style={{
+          width: 60,
+          height: 3,
+          background: "rgba(0,212,255,0.06)",
+          borderRadius: 1,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.min(value || 0, 100)}%`,
+            height: "100%",
+            background: color,
+            borderRadius: 1,
+            transition: "width 1s ease, background 0.5s ease",
+          }}
+        />
+      </div>
+      <span
+        style={{
+          fontFamily: "'Share Tech Mono', monospace",
+          fontSize: 7,
+          color,
+          letterSpacing: ".04em",
+          minWidth: 20,
+          textAlign: "right",
+        }}
+      >
+        {Math.round(value || 0)}%
+      </span>
     </div>
   )
 }

@@ -274,42 +274,77 @@ class GroqBrain:
         """Determine if intelligent research is needed for this query."""
         text_lower = user_text.lower()
         
-        # Research triggers based on question type and keywords
+        # Skip research for short/simple commands
+        if len(text_lower.split()) <= 4:
+            return False
+        
         research_triggers = [
-            # Technical questions
             'how does', 'how do', 'how can', 'what is', 'what are', 'explain',
             'compare', 'difference', 'versus', 'vs', 'advantages', 'disadvantages',
             'best practices', 'implementation', 'architecture', 'design patterns',
-            
-            # Academic/research questions
             'research', 'study', 'paper', 'evidence', 'data', 'statistics',
             'latest', 'current', 'recent', 'trends', 'developments', 'advances',
-            
-            # Complex technical topics
             'artificial intelligence', 'machine learning', 'neural network', 'algorithm',
             'blockchain', 'quantum computing', 'cybersecurity', 'cloud computing',
             'microservices', 'api', 'database', 'framework', 'library'
         ]
-        
-        # Check if any research triggers are present
         has_triggers = any(trigger in text_lower for trigger in research_triggers)
-        
-        # Check if it's a complex question (more than 8 words)
-        is_complex = len(text_lower.split()) > 8
-        
-        # Check if user is asking for detailed information
         wants_detail = any(word in text_lower for word in ['detailed', 'comprehensive', 'in-depth', 'thorough'])
-        
-        # Check if it's about emerging tech or complex topics
         complex_topics = [
             'artificial intelligence', 'machine learning', 'deep learning',
             'quantum computing', 'blockchain', 'cybersecurity', 'edge computing',
             'internet of things', '5g', 'augmented reality', 'metaverse'
         ]
         has_complex_topic = any(topic in text_lower for topic in complex_topics)
-        
-        # Research is needed if any condition is met
-        return has_triggers or is_complex or wants_detail or has_complex_topic
+        return has_triggers or wants_detail or has_complex_topic
+
+    def _detect_expertise_domain(self, user_text: str) -> str | None:
+        """Detect if the query falls into a specific expertise domain."""
+        text_lower = user_text.lower()
+        domain_keywords = {
+            'nextjs': ['next.js', 'nextjs', 'next js', 'app router', 'server component',
+                       'server action', 'middleware', 'next config', 'vercel'],
+            'fastapi': ['fastapi', 'fast api', 'pydantic', 'uvicorn', 'starlette',
+                        'api endpoint', 'rest api', 'swagger', 'openapi'],
+            'coding': ['code', 'debug', 'refactor', 'function', 'class', 'variable',
+                       'error', 'bug', 'syntax', 'compile', 'runtime', 'test',
+                       'typescript', 'javascript', 'python', 'react', 'component'],
+            'product': ['product', 'roadmap', 'prd', 'user story', 'sprint',
+                        'backlog', 'stakeholder', 'mvp', 'feature', 'metric',
+                        'kpi', 'okr', 'agile', 'scrum'],
+        }
+        for domain, keywords in domain_keywords.items():
+            if any(kw in text_lower for kw in keywords):
+                return domain
+        return None
+
+    def _get_expertise_context(self, domain: str) -> str:
+        """Return domain-specific expert context for the system prompt."""
+        try:
+            if domain == 'nextjs':
+                return nextjs_expertise.get_expertise_context()
+            elif domain == 'fastapi':
+                return fastapi_expertise.get_expertise_context()
+            elif domain == 'coding':
+                return coding_buddy.get_expertise_context()
+            elif domain == 'product':
+                return product_engineering.get_expertise_context()
+        except Exception:
+            pass
+        return ""
+
+    def _dynamic_max_tokens(self, user_text: str) -> int:
+        """Allocate tokens based on query complexity."""
+        base = getattr(cfg, 'MAX_TOKENS', 512)
+        text_lower = user_text.lower()
+        word_count = len(text_lower.split())
+        if word_count <= 3:
+            return min(base, 200)
+        if word_count <= 6:
+            return min(base, 300)
+        if any(w in text_lower for w in ['explain', 'detailed', 'comprehensive', 'write', 'create', 'generate', 'code', 'implement']):
+            return base
+        return min(base, 400)
 
     # ── Public ────────────────────────────────────────────────────────────────
 
@@ -335,23 +370,23 @@ class GroqBrain:
         # 3. Persist user utterance
         self._store.save_turn("user", user_text, session_id)
 
-        # 3. Extract and save facts from user's message proactively
+        # 4. Extract and save facts from user's message proactively
         for key, value in _extract_facts_from_text(user_text):
             self._store.set_fact(key, value)
             print(f"  [FACT] learned: {key} = {value}")
 
-        # 4. Handle implicit requests detected by advanced understanding
+        # 5. Handle implicit requests detected by advanced understanding
         if understanding.implicit_request:
             user_text += f"\n[IMPLICIT_REQUEST: {understanding.implicit_request}]"
 
-        # 5. Session history (use configurable limit for speed optimization)
-        memory_limit = getattr(cfg, 'MEMORY_HISTORY_LIMIT', 20)
+        # 6. Session history
+        memory_limit = getattr(cfg, 'MEMORY_HISTORY_LIMIT', 15)
         history = self._store.get_session_history(session_id, limit=memory_limit)
 
-        # 4. Semantic memory recall
+        # 7. Semantic memory recall
         recalled = self._store.search(user_text, top_k=3)
 
-        # 6. Build dynamic system prompt with understanding context
+        # 8. Build dynamic system prompt with understanding context
         memory_block = (
             "\n".join(f"  • {m}" for m in recalled)
             if recalled else "  (no relevant past context)"
@@ -399,18 +434,26 @@ Related Topics: {', '.join(research_result.related_topics[:3])}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
+        # 9. Detect expertise domain and inject specialist context
+        expertise_context = ""
+        domain = self._detect_expertise_domain(user_text)
+        if domain:
+            expert_ctx = self._get_expertise_context(domain)
+            if expert_ctx:
+                expertise_context = f"\nACTIVE EXPERTISE: {domain.upper()}\n{expert_ctx[:800]}\n"
+                print(f"  [EXPERTISE] Activated: {domain}")
+
         system = _BASE_SYSTEM_PROMPT.format(
             time_context=_time_context(),
             memory_block=memory_block,
             facts_block=facts_block,
-        ) + understanding_context + research_context
+        ) + understanding_context + research_context + expertise_context
 
-        # 6. Call Groq
+        # 10. Call Groq with dynamic token allocation
         print("🧠  Thinking...", end=" ", flush=True)
+        max_tokens = self._dynamic_max_tokens(user_text)
         try:
-            # Apply speed optimizations
-            max_tokens = getattr(cfg, 'MAX_TOKENS', 220)
-            temperature = getattr(cfg, 'RESPONSE_TEMPERATURE', 0.75)
+            temperature = getattr(cfg, 'RESPONSE_TEMPERATURE', 0.7)
             
             response = self._client.chat.completions.create(
                 model=self._model,
@@ -435,16 +478,15 @@ Related Topics: {', '.join(research_result.related_topics[:3])}
                 reply = f"I encountered an error in my reasoning core: {exc}"
         print("done.")
 
-        # 7. Handle [FACT:] tags the LLM emits
+        # 11. Handle [FACT:] tags the LLM emits
         fact_match = self.parse_fact(reply)
         if fact_match:
             key, value = fact_match
             self._store.set_fact(key, value)
             print(f"  [FACT] stored: {key} = {value}")
-            # Strip the tag from the spoken reply
             reply = re.sub(r"\[FACT:.*?\]", "", reply, flags=re.IGNORECASE).strip()
 
-        # 8. Persist assistant reply
+        # 12. Persist assistant reply
         self._store.save_turn("assistant", reply, session_id)
 
         return reply

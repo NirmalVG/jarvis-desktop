@@ -2,29 +2,34 @@
 jarvis/hud/bridge.py
 ════════════════════
 WebSocket server that broadcasts Jarvis state to the Electron HUD.
+Now supports BIDIRECTIONAL communication — HUD can send commands back.
 
 The main loop calls bridge.emit(event) whenever state changes.
 Electron connects on ws://localhost:6789 and receives JSON messages.
 
-Message schema
+Message schema (Server → Client)
 ──────────────
 {
-  "type":       "state_change" | "transcript" | "reply" | "stats" | "ping",
+  "type":       "state_change" | "transcript" | "reply" | "stats" | "system_info",
   "state":      "SLEEPING" | "LISTENING" | "THINKING" | "SPEAKING",
   "transcript": "what the user said",
   "reply":      "what Jarvis replied",
-  "stats": {
-    "sessions":    3,
-    "total_turns": 42,
-    "memories":    38,
-    "session_id":  "abc12345"
-  }
+  "stats":      { ... },
+  "system_info": { "cpu_percent": 12, "memory_percent": 45, ... }
+}
+
+Message schema (Client → Server)
+──────────────
+{
+  "type":    "command",
+  "text":    "open youtube"
 }
 """
 
 import asyncio
 import json
 import threading
+import queue
 from datetime import datetime
 
 WS_PORT = 6789
@@ -34,6 +39,11 @@ class HUDBridge:
     """
     Runs an asyncio WebSocket server in a background thread.
     Thread-safe: emit() can be called from the main Python thread.
+
+    Now supports:
+      • Bidirectional messaging — clients can send commands
+      • Command queue — main.py polls for HUD-originated commands
+      • System info broadcasting — periodic CPU/mem/uptime
 
     Usage
     ─────
@@ -45,6 +55,11 @@ class HUDBridge:
         bridge.emit("SPEAKING",  reply="Opening YouTube.")
         bridge.emit("SLEEPING")
 
+        # Poll for HUD commands (non-blocking):
+        cmd = bridge.get_pending_command()
+        if cmd:
+            handle_command(cmd, ...)
+
         # On shutdown:
         bridge.stop()
     """
@@ -55,7 +70,10 @@ class HUDBridge:
         self._loop:   asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._server  = None
-        self._stop_future: asyncio.Future | None = None  # sentinel to end _serve()
+        self._stop_future: asyncio.Future | None = None
+
+        # Command queue: HUD → Python backend
+        self._command_queue: queue.Queue = queue.Queue()
 
         # Last known full state — sent to new connections immediately
         self._last_payload: dict = {
@@ -70,6 +88,9 @@ class HUDBridge:
         # Command history for HUD display
         self._command_history: list[dict] = []
 
+        # System info broadcasting
+        self._system_info_task: asyncio.Task | None = None
+
     # ── Public (called from main thread) ─────────────────────────────────────
 
     def start(self) -> None:
@@ -81,7 +102,6 @@ class HUDBridge:
     def stop(self) -> None:
         """Gracefully shut down the WebSocket server and close all clients."""
         if self._loop and not self._loop.is_closed():
-            # Schedule shutdown on the event loop
             asyncio.run_coroutine_threadsafe(
                 self._shutdown(), self._loop
             ).result(timeout=5)
@@ -118,7 +138,6 @@ class HUDBridge:
                 "state": state,
                 "timestamp": datetime.now().isoformat(),
             })
-            # Keep last 50 entries
             if len(self._command_history) > 50:
                 self._command_history = self._command_history[-50:]
 
@@ -136,6 +155,30 @@ class HUDBridge:
         """Check if any HUD clients are currently connected."""
         return len(self._clients) > 0
 
+    def get_pending_command(self) -> str | None:
+        """
+        Non-blocking poll for commands sent from HUD.
+        Returns the command text, or None if queue is empty.
+        Called by main.py between listen cycles.
+        """
+        try:
+            return self._command_queue.get_nowait()
+        except queue.Empty:
+            return None
+
+    def emit_system_info(self, info: dict) -> None:
+        """Broadcast system diagnostics to all HUD clients."""
+        payload = {
+            "type": "system_info",
+            **info,
+            "timestamp": datetime.now().isoformat(),
+        }
+        if self._loop and not self._loop.is_closed():
+            asyncio.run_coroutine_threadsafe(
+                self._broadcast(json.dumps(payload)),
+                self._loop,
+            )
+
     # ── Private ───────────────────────────────────────────────────────────────
 
     def _run(self) -> None:
@@ -152,14 +195,13 @@ class HUDBridge:
     async def _serve(self) -> None:
         try:
             import websockets
-            # Bind to explicit IPv4 127.0.0.1 — NOT "localhost".
-            # On Windows, "localhost" resolves to BOTH ::1 (IPv6) and 127.0.0.1,
-            # causing dual-stack bind conflicts (OSError 10048).
             self._server = await websockets.serve(
                 self._handler, "127.0.0.1", self._port
             )
+            # Start periodic system info broadcast
+            self._system_info_task = asyncio.ensure_future(self._broadcast_system_info_loop())
             self._stop_future = self._loop.create_future()
-            await self._stop_future   # Run until stop() resolves this
+            await self._stop_future
         except ImportError:
             print("  [HUD] websockets not installed. Run: pip install websockets")
         except OSError as exc:
@@ -171,7 +213,10 @@ class HUDBridge:
 
     async def _shutdown(self) -> None:
         """Close all client connections and stop the server."""
-        # Close all connected clients
+        # Cancel system info task
+        if self._system_info_task and not self._system_info_task.done():
+            self._system_info_task.cancel()
+
         for ws in list(self._clients):
             try:
                 await ws.close()
@@ -179,12 +224,10 @@ class HUDBridge:
                 pass
         self._clients.clear()
 
-        # Stop the server
         if self._server:
             self._server.close()
             await self._server.wait_closed()
 
-        # Signal the serve loop to exit gracefully
         if self._stop_future and not self._stop_future.done():
             self._stop_future.set_result(True)
 
@@ -195,7 +238,6 @@ class HUDBridge:
         # Send current state to new client immediately
         try:
             await websocket.send(json.dumps(self._last_payload))
-            # Also send command history if available
             if self._command_history:
                 await websocket.send(json.dumps({
                     "type": "command_history",
@@ -205,8 +247,17 @@ class HUDBridge:
             pass
 
         try:
-            async for _ in websocket:
-                pass   # HUD doesn't send messages (display-only)
+            # BIDIRECTIONAL: listen for incoming messages from HUD
+            async for raw_msg in websocket:
+                try:
+                    msg = json.loads(raw_msg)
+                    if msg.get("type") == "command" and msg.get("text"):
+                        cmd_text = msg["text"].strip()
+                        if len(cmd_text) > 1:
+                            self._command_queue.put(cmd_text)
+                            print(f"  [HUD] Command received: {cmd_text}")
+                except (json.JSONDecodeError, KeyError):
+                    pass
         except Exception:
             pass
         finally:
@@ -223,6 +274,31 @@ class HUDBridge:
             except Exception:
                 dead.add(ws)
         self._clients -= dead
+
+    async def _broadcast_system_info_loop(self) -> None:
+        """Periodically broadcast system info to HUD clients (every 5 seconds)."""
+        while True:
+            try:
+                await asyncio.sleep(5)
+                if not self._clients:
+                    continue
+                try:
+                    from services.diagnostics import get_system_info
+                    info = get_system_info()
+                    payload = json.dumps({
+                        "type": "system_info",
+                        **info,
+                        "timestamp": datetime.now().isoformat(),
+                    })
+                    await self._broadcast(payload)
+                except ImportError:
+                    pass  # diagnostics module not available
+                except Exception:
+                    pass
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                await asyncio.sleep(10)
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 /**
  * electron/preload.js
  * Exposes a safe, typed API from main process to renderer via contextBridge.
+ * NOW BIDIRECTIONAL — includes sendCommand for HUD → Python bridge.
  */
 
 const { contextBridge, ipcRenderer } = require("electron")
@@ -11,12 +12,14 @@ contextBridge.exposeInMainWorld("jarvis", {
   toggleFullscreen: () => ipcRenderer.send("toggle-fullscreen"),
   minimizeHud: () => ipcRenderer.send("minimize-hud"),
   quit: () => ipcRenderer.send("quit"),
+  sendCommand: (text) => ipcRenderer.send("send-command", text),
 
   // Main → Renderer (event subscriptions)
   onState: (cb) => ipcRenderer.on("jarvis-state", (_, d) => cb(d)),
   onConnection: (cb) => ipcRenderer.on("connection-status", (_, d) => cb(d)),
   onClickthrough: (cb) =>
     ipcRenderer.on("clickthrough-status", (_, d) => cb(d)),
+  onSystemInfo: (cb) => ipcRenderer.on("system-info", (_, d) => cb(d)),
 
   // Cleanup
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),

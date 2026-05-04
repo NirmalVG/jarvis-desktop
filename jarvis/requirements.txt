@@ -30,3 +30,6 @@ websockets>=12.0               # WebSocket server for Python→Electron HUD brid
 
 # ── Config ────────────────────────────────────────────────────
 python-dotenv>=1.0.0           # Load API keys from .env file (optional)
+
+# ── System Diagnostics ────────────────────────────────────────
+psutil>=5.9.0                  # CPU, memory, disk, uptime monitoring for HUD

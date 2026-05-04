@@ -716,6 +716,22 @@ def main():
         try:
             print("🎤  Ready...")
             hud_emit("LISTENING", stats=store.stats())
+
+            # ── Poll HUD command queue before blocking on mic ─────────
+            if _bridge is not None:
+                hud_cmd = _bridge.get_pending_command()
+                if hud_cmd:
+                    print(f"\n🖥️  HUD COMMAND: \"{hud_cmd}\"")
+                    should_continue = handle_command(
+                        hud_cmd, session_id, brain, actuator, tts, store
+                    )
+                    if not should_continue:
+                        final = "Powering down. Stay sharp."
+                        hud_emit("SLEEPING", transcript="", reply=final, stats=store.stats())
+                        tts.speak(final)
+                        break
+                    continue  # Skip mic listen — go back to top
+
             user_text = stt.listen_and_transcribe()
 
             if not user_text or len(user_text.strip()) < 3:

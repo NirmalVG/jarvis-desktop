@@ -35,9 +35,9 @@ WAKE_MODE = "clap"
 AUTO_START_CONVERSATION = False
 STARTUP_TECH_BRIEFING = True
 
-# ── Senior Software Engineer Speed Optimizations ───────────────────────────────────
-# Ultra-fast response configuration with premium precision
-FAST_RESPONSE_MODE = True
+# ── Premium Intelligence Configuration ─────────────────────────────────────────────
+# Balanced for intelligent, contextual responses with Jarvis personality
+PREMIUM_INTELLIGENCE = True
 CLAP_DOUBLE = True         # Double clap required for activation
 CLAP_MIN_GAP_MS = 150      # Minimum gap between claps (optimized precision)
 CLAP_MAX_GAP_MS = 600      # Maximum gap between claps (premium window)
@@ -78,11 +78,15 @@ KEYWORD_MODEL     = "hey_mycroft"
 KEYWORD_THRESHOLD = 0.5    # 0.0–1.0; lower = more sensitive
 
 # ── Clap detector tuning ──────────────────────────────────────────────────────
-CLAP_SENSITIVITY      = 2.8    # Premium precision optimized (Senior Software Engineer tuned)
-MAX_TOKENS = 80           # Minimized for ultra-fast responses
-MEMORY_HISTORY_LIMIT = 3   # Reduced for faster recall
-RESEARCH_DEPTH = "quick"   # Use quick research mode for speed
-RESPONSE_TEMPERATURE = 0.1  # Low temperature for deterministic, fast responses
+CLAP_SENSITIVITY      = 2.8    # Premium precision optimized
+
+# ── Intelligence Tuning ──────────────────────────────────────────────────────
+# These values MUST be high enough for Jarvis to produce intelligent responses.
+# Previously set to 80/3/0.1 which crippled output quality.
+MAX_TOKENS = 512           # Full responses — Jarvis needs room to think
+MEMORY_HISTORY_LIMIT = 15  # Deep context — Jarvis remembers the conversation
+RESEARCH_DEPTH = "thorough" # Full research for complex questions
+RESPONSE_TEMPERATURE = 0.7  # Personality + creativity — matches SOUL.md character
 
 # ── STT ───────────────────────────────────────────────────────────────────────
 WHISPER_MODEL         = "tiny.en"   # "tiny.en" (fast) | "base.en" (recommended) | "small.en"
@@ -91,7 +95,7 @@ SILENCE_CUTOFF_MS     = 700         # ms of silence before recording stops
 MAX_RECORD_SECONDS    = 9
 
 # ── LLM Brain ─────────────────────────────────────────────────────────────────
-GROQ_MODEL            = "llama-3.1-8b-instant"   # Fast; swap to "llama-3.3-70b-versatile" for smarter
+GROQ_MODEL            = "llama-3.3-70b-versatile"  # Premium intelligence — smarter reasoning, better personality
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
 # Current male neural options: en-US-BrianNeural | en-US-GuyNeural | en-US-ChristopherNeural

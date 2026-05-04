@@ -74,7 +74,12 @@ function connectToPythonBridge() {
     )
     wsClient.on("message", (data) => {
       try {
-        sendToRenderer("jarvis-state", JSON.parse(data.toString()))
+        const msg = JSON.parse(data.toString())
+        if (msg.type === "system_info") {
+          sendToRenderer("system-info", msg)
+        } else {
+          sendToRenderer("jarvis-state", msg)
+        }
       } catch (_) {}
     })
     wsClient.on("close", () => {
@@ -105,6 +110,13 @@ ipcMain.on("toggle-fullscreen", () => {
 })
 ipcMain.on("minimize-hud", () => mainWindow?.hide())
 ipcMain.on("quit", () => app.quit())
+
+// Bidirectional: HUD sends commands to Python bridge via WebSocket
+ipcMain.on("send-command", (_, text) => {
+  if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+    wsClient.send(JSON.stringify({ type: "command", text }))
+  }
+})
 
 app.whenReady().then(() => {
   createWindow()

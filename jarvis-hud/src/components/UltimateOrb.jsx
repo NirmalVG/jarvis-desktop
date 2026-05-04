@@ -513,6 +513,10 @@ function SceneContent({ state, amplitude }) {
       <Lighting state={state} />
       <InnerCore state={state} amplitude={amplitude} />
       <PlasmaSphere state={state} amplitude={amplitude} />
+      <WireShell state={state} />
+      <EnergyRings state={state} />
+      <ParticleField state={state} amplitude={amplitude} />
+      <ScanBeam state={state} />
     </>
   )
 }
