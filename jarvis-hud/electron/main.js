@@ -25,6 +25,28 @@ let tray = null
 let wsClient = null
 let clickThrough = true
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
+function enableLaunchAtLogin() {
+  if (isDev) {
+    return
+  }
+
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: false,
+      name: "Jarvis HUD",
+    })
+  } catch (error) {
+    console.warn("[Electron] Failed to enable launch at login:", error.message)
+  }
+}
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
 
@@ -118,7 +140,19 @@ ipcMain.on("send-command", (_, text) => {
   }
 })
 
+app.on("second-instance", () => {
+  if (!mainWindow) return
+  if (!mainWindow.isVisible()) mainWindow.show()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
+})
+
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) {
+    return
+  }
+
+  enableLaunchAtLogin()
   createWindow()
 
   // Register global shortcut: Ctrl+Shift+J toggles HUD visibility

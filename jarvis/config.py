@@ -30,15 +30,15 @@ if not GROQ_API_KEY:
 WAKE_MODE = "clap"
 
 # Startup behavior
-# True: speak the technology briefing immediately, then begin normal conversation.
+# True: activate immediately on launch, speak the technology briefing, then begin normal conversation.
 # False: wait for the configured wake trigger before speaking/listening.
-AUTO_START_CONVERSATION = False
+AUTO_START_CONVERSATION = True
 STARTUP_TECH_BRIEFING = True
 
 # ── Premium Intelligence Configuration ─────────────────────────────────────────────
 # Balanced for intelligent, contextual responses with Jarvis personality
 PREMIUM_INTELLIGENCE = True
-CLAP_DOUBLE = True         # Double clap required for activation
+CLAP_DOUBLE = False        # Single clap only when wake detection is explicitly enabled
 CLAP_MIN_GAP_MS = 150      # Minimum gap between claps (optimized precision)
 CLAP_MAX_GAP_MS = 600      # Maximum gap between claps (premium window)
 CLAP_SENSITIVITY = 2.8     # Optimized sensitivity for high precision

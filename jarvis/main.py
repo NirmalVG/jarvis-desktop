@@ -696,6 +696,9 @@ def main():
         # Launch Electron HUD after successful wake gesture
         if cfg.AUTO_OPEN_HUD:
             _launch_hud_application()
+    elif cfg.AUTO_OPEN_HUD:
+        # In auto-start mode there is no wake event, so bring the HUD up now.
+        _launch_hud_application()
     
     hud_emit("LISTENING")
     tts.speak("JARVIS online.")
