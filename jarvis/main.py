@@ -47,6 +47,7 @@ from voice.tts         import TTS
 # ── HUD bridge ────────────────────────────────────────────────────────────────
 
 _bridge = None
+_hud_launch_attempted = False
 
 
 def _init_bridge():
@@ -61,6 +62,11 @@ def _init_bridge():
     except Exception as exc:
         print(f"  [WARN] HUD bridge failed to start: {exc}")
         print("         pip install websockets")
+
+
+def _repo_root() -> str:
+    """Return the project root that contains both jarvis/ and jarvis-hud/."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def hud_emit(state, transcript="", reply="", stats=None):
@@ -122,6 +128,8 @@ def boot():
 
     print("  [6/7] HUD bridge...")
     _init_bridge()
+    if cfg.AUTO_OPEN_HUD:
+        _launch_hud_application()
 
     print("  [7/7] Vision engine...")
     _init_vision()
@@ -356,11 +364,15 @@ def _launch_hud_application() -> None:
     import sys
     import os
     
+    global _hud_launch_attempted
+
+    if _hud_launch_attempted:
+        return
+    _hud_launch_attempted = True
+
     try:
         # Determine the HUD directory path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        jarvis_root = os.path.dirname(current_dir)
-        hud_dir = os.path.join(jarvis_root, "jarvis-hud")
+        hud_dir = os.path.join(_repo_root(), "jarvis-hud")
         
         if not os.path.exists(hud_dir):
             print("⚠️  HUD directory not found. Skipping HUD launch.")
@@ -692,13 +704,6 @@ def main():
         clap_type = "Single clap" if not getattr(cfg, 'CLAP_DOUBLE', False) else "Double-clap"
         print(f"👋  {clap_type} to activate Jarvis...")
         wake_fn()
-        
-        # Launch Electron HUD after successful wake gesture
-        if cfg.AUTO_OPEN_HUD:
-            _launch_hud_application()
-    elif cfg.AUTO_OPEN_HUD:
-        # In auto-start mode there is no wake event, so bring the HUD up now.
-        _launch_hud_application()
     
     hud_emit("LISTENING")
     tts.speak("JARVIS online.")

@@ -16,6 +16,9 @@ for %%a in (%*) do (
     if "%%a"=="--no-wake" set NO_WAKE=1
 )
 
+set JARVIS_AUTO_OPEN_HUD=1
+if %DEV_MODE%==1 set JARVIS_AUTO_OPEN_HUD=0
+
 :: ── Check prerequisites ──────────────────────────────────────
 where python >nul 2>&1
 if %errorlevel% neq 0 (
@@ -31,6 +34,11 @@ if %errorlevel% neq 0 (
     echo          Install Node.js 18+ from https://nodejs.org
     pause
     exit /b 1
+)
+
+if not exist "jarvis-hud\node_modules" (
+    echo  [....] Installing HUD dependencies...
+    call npm --prefix jarvis-hud install
 )
 
 :: ── Check .env file ──────────────────────────────────────────
@@ -56,8 +64,9 @@ echo  [....] Waiting for backend to boot (5s)...
 timeout /t 5 /nobreak >nul
 
 :: ── HUD Frontend ─────────────────────────────────────────────
-echo  [2/2] Starting HUD frontend...
-cd jarvis-hud
+if %DEV_MODE%==1 (
+    echo  [2/2] Starting HUD frontend...
+    cd jarvis-hud
 
 :: Install dependencies if node_modules missing
 if not exist "node_modules" (
@@ -65,19 +74,14 @@ if not exist "node_modules" (
     call npm install
 )
 
-if %DEV_MODE%==1 (
     echo  [DEV]  Starting in browser-only mode (no Electron)...
     start "Jarvis-HUD" cmd /c "npm run dev"
     timeout /t 3 /nobreak >nul
     start "" "http://localhost:5173"
+    cd ..
 ) else (
-    echo  [PROD] Starting Electron HUD...
-    start "Jarvis-HUD" cmd /c "npm run dev"
-    timeout /t 3 /nobreak >nul
-    start "Jarvis-Electron" cmd /c "npx electron ."
+    echo  [2/2] Electron HUD will open during backend boot.
 )
-
-cd ..
 
 echo.
 echo  ================================================

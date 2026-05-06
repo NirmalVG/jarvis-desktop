@@ -65,8 +65,9 @@ DISABLE_BRIEFING_ON_NETWORK_ERROR = False
 # News briefing style: "single" for one major story with global context, "multiple" for several headlines, "60second" for comprehensive briefing
 NEWS_BRIEFING_STYLE = "60second"
 
-# Automatically open Electron HUD when Jarvis comes online
-AUTO_OPEN_HUD = True
+# Automatically open Electron HUD when Jarvis comes online.
+# Set JARVIS_AUTO_OPEN_HUD=0 to let an external launcher own the HUD process.
+AUTO_OPEN_HUD = os.environ.get("JARVIS_AUTO_OPEN_HUD", "1").lower() not in ("0", "false", "no")
 
 # Only used when WAKE_MODE = "keyword"
 # Built-in options (no download): "alexa", "hey_mycroft", "hey_rhasspy"
