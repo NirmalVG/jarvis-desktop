@@ -131,7 +131,7 @@ def technology_headlines(limit: int = 5) -> list[SearchResult]:
 
 def search_web(query: str, limit: int = 5) -> list[SearchResult]:
     url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
-    html = _fetch_text(url)
+    html = _fetch_text(url, timeout=15)
     blocks = re.findall(
         r'<a rel="nofollow" class="result__a" href="(?P<url>.*?)".*?>(?P<title>.*?)</a>.*?'
         r'<a class="result__snippet".*?>(?P<snippet>.*?)</a>',

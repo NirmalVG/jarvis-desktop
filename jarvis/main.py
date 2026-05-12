@@ -194,8 +194,62 @@ _SYSTEM_COMMANDS = {
 }
 
 
+def _clean_search_query(query: str) -> str:
+    """Strip conversational filler from a question to extract a focused search query.
+
+    Examples:
+        'What is your review about S23?'  → 'S23 review'
+        'Tell me about quantum computing' → 'quantum computing'
+        'How does React work?'            → 'React work'
+        'Who invented the telephone?'     → 'telephone inventor'
+    """
+    q = re.sub(r"[^\w\s]", "", query).strip().lower()
+
+    # Strip leading question / filler patterns (order matters — longest first)
+    strip_prefixes = (
+        "what is your review about ", "what is your opinion on ",
+        "what is your review of ", "what is your opinion about ",
+        "what are your thoughts on ", "what do you think about ",
+        "tell me about ", "tell me ",
+        "explain to me ", "explain me ", "explain ",
+        "describe ", "define ",
+        "what is the meaning of ", "meaning of ",
+        "what is ", "what are ", "what does ", "what was ", "what were ",
+        "who is ", "who are ", "who was ", "who invented ", "who created ",
+        "why is ", "why are ", "why does ", "why do ", "why did ",
+        "how does ", "how do ", "how is ", "how are ", "how did ",
+        "how much ", "how many ",
+        "when is ", "when was ", "when did ", "when does ",
+        "where is ", "where are ", "where was ", "where did ",
+        "which is ", "which are ",
+        "is there ", "are there ",
+        "does ", "do ", "did ", "can ", "will ", "should ",
+    )
+    for prefix in strip_prefixes:
+        if q.startswith(prefix):
+            q = q[len(prefix):]
+            break
+
+    # Strip trailing filler ("about it", "for me", etc.)
+    trailing = (" for me", " for us", " about it", " about that",
+                " please", " right now", " nowadays")
+    for t in trailing:
+        if q.endswith(t):
+            q = q[: -len(t)]
+
+    q = q.strip()
+    return q if len(q) >= 2 else query.strip()  # fallback to original if too short
+
+
 def _extract_web_query(clean: str, original: str) -> str | None:
-    """Return a search query when the utterance asks for live web information."""
+    """Return a search query when the utterance asks for information.
+    
+    Triggers on:
+      • Current/live markers (latest, today, news…)
+      • Question patterns (what, who, why, how, when, where…)
+      • Knowledge-seeking phrases (explain, tell me, define…)
+    """
+    # ── Current / live info markers ────────────────────────────────────────
     current_markers = (
         "latest ",
         "current ",
@@ -208,6 +262,26 @@ def _extract_web_query(clean: str, original: str) -> str | None:
     )
     if any(marker in clean for marker in current_markers):
         return original.strip()
+
+    # ── Question patterns — triggers web research for answers ─────────────
+    question_starters = (
+        "what is ", "what are ", "what does ", "what was ", "what were ",
+        "who is ", "who are ", "who was ", "who invented ", "who created ",
+        "why is ", "why are ", "why does ", "why do ", "why did ",
+        "how does ", "how do ", "how is ", "how are ", "how did ",
+        "how much ", "how many ",
+        "when is ", "when was ", "when did ", "when does ",
+        "where is ", "where are ", "where was ", "where did ",
+        "which is ", "which are ",
+        "is there ", "are there ",
+        "does ", "do ", "did ", "can ", "will ", "should ",
+        "explain ", "tell me about ", "tell me ", "define ",
+        "describe ", "meaning of ",
+    )
+    # Only match if it genuinely looks like a question (5+ chars after starter)
+    for starter in question_starters:
+        if clean.startswith(starter) and len(clean) > len(starter) + 4:
+            return original.strip()
 
     return None
 
@@ -263,9 +337,15 @@ def _answer_from_web(query: str, session_id, brain, tts, store, transcript: str)
     if not query:
         return False
 
-    hud_emit("THINKING", transcript=transcript, reply="Searching the web...")
+    # Emit THINKING without intermediate text — UI shows only the final answer
+    hud_emit("THINKING", transcript=transcript)
+
+    # Strip conversational filler → focused search keywords
+    search_query = _clean_search_query(query)
+    print(f"  🔎  Search query: \"{search_query}\"")
+
     try:
-        results = search_web(query, limit=5)
+        results = search_web(search_query, limit=5)
         web_context = format_results(results)
         reply = brain.answer_with_web_context(
             f"Answer this using current web results: {query}",
