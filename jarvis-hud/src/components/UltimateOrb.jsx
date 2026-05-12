@@ -311,86 +311,11 @@ function InnerCore({ state, amplitude }) {
   )
 }
 
-// ─── WireShell ────────────────────────────────────────────────────────────────
-function WireShell({ state }) {
-  const ref = useRef()
-  const col = useRef(new THREE.Color(S.SLEEPING.ring))
+// ─── WireShell REMOVED ─────────────────────────────────────────────────────────
+// Circular wireframe cage removed per user request for a cleaner orb design.
 
-  useFrame(({ clock }) => {
-    if (!ref.current) return
-    const t = clock.getElapsedTime()
-    const cfg = S[state] || S.SLEEPING
-
-    col.current.lerp(new THREE.Color(cfg.ring), 0.04)
-    ref.current.material.color.copy(col.current)
-
-    const dir = state === "THINKING" ? -1 : 1
-    ref.current.rotation.y += 0.004 * dir * (cfg.speed / 3.2)
-    ref.current.rotation.x += 0.002
-
-    ref.current.material.opacity =
-      state === "SLEEPING"
-        ? 0.04 + Math.sin(t * 0.6) * 0.015
-        : 0.09 + Math.sin(t * cfg.speed * 0.4) * 0.04
-  })
-
-  return (
-    <mesh ref={ref}>
-      <icosahedronGeometry args={[1.08, 2]} />
-      <meshBasicMaterial wireframe transparent opacity={0.06} />
-    </mesh>
-  )
-}
-
-// ─── EnergyRings ─────────────────────────────────────────────────────────────
-const RING_DEFS = [
-  { radius: 1.38, tube: 0.008, rotX: 0.45, rotY: 0.0, rotZ: 0.0, spinDir: 1 },
-  { radius: 1.62, tube: 0.006, rotX: 1.4, rotY: 0.9, rotZ: 0.0, spinDir: -1 },
-  { radius: 1.85, tube: 0.005, rotX: 2.3, rotY: 0.0, rotZ: 0.6, spinDir: 1 },
-  { radius: 2.1, tube: 0.004, rotX: 0.2, rotY: 1.55, rotZ: 1.1, spinDir: -1 },
-]
-
-function SingleRing({ state, radius, tube, rotX, rotY, rotZ, spinDir }) {
-  const ref = useRef()
-  const col = useRef(new THREE.Color(S.SLEEPING.ring))
-
-  useFrame(({ clock }) => {
-    if (!ref.current) return
-    const t = clock.getElapsedTime()
-    const cfg = S[state] || S.SLEEPING
-
-    col.current.lerp(new THREE.Color(cfg.ring), 0.04)
-    ref.current.material.color.copy(col.current)
-    ref.current.rotation.z += spinDir * cfg.ringSpd
-
-    if (state === "LISTENING") {
-      const s = 1 + Math.abs(Math.sin(t * 2.2)) * 0.06
-      ref.current.scale.setScalar(s)
-    } else {
-      ref.current.scale.setScalar(1)
-    }
-
-    const baseAlpha = state === "SLEEPING" ? 0.2 : 0.55
-    ref.current.material.opacity = baseAlpha + Math.sin(t * 1.4) * 0.1
-  })
-
-  return (
-    <mesh ref={ref} rotation={[rotX, rotY, rotZ]}>
-      <torusGeometry args={[radius, tube, 8, 180]} />
-      <meshBasicMaterial transparent opacity={0.35} />
-    </mesh>
-  )
-}
-
-function EnergyRings({ state }) {
-  return (
-    <>
-      {RING_DEFS.map((r, i) => (
-        <SingleRing key={i} state={state} {...r} />
-      ))}
-    </>
-  )
-}
+// ─── EnergyRings REMOVED ──────────────────────────────────────────────────────
+// Circular torus rings removed per user request for a cleaner orb design.
 
 // ─── ParticleField ────────────────────────────────────────────────────────────
 const PARTICLE_COUNT = 2500
@@ -513,8 +438,6 @@ function SceneContent({ state, amplitude }) {
       <Lighting state={state} />
       <InnerCore state={state} amplitude={amplitude} />
       <PlasmaSphere state={state} amplitude={amplitude} />
-      <WireShell state={state} />
-      <EnergyRings state={state} />
       <ParticleField state={state} amplitude={amplitude} />
       <ScanBeam state={state} />
     </>

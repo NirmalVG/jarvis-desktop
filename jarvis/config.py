@@ -84,16 +84,18 @@ CLAP_SENSITIVITY      = 2.8    # Premium precision optimized
 # ── Intelligence Tuning ──────────────────────────────────────────────────────
 # These values MUST be high enough for Jarvis to produce intelligent responses.
 # Previously set to 80/3/0.1 which crippled output quality.
-MAX_TOKENS = 512           # Full responses — Jarvis needs room to think
-MEMORY_HISTORY_LIMIT = 15  # Deep context — Jarvis remembers the conversation
+MAX_TOKENS = 800           # Full responses — room for rich, human-like replies
+MEMORY_HISTORY_LIMIT = 20  # Deep context — remembers more of the conversation
 RESEARCH_DEPTH = "thorough" # Full research for complex questions
 RESPONSE_TEMPERATURE = 0.7  # Personality + creativity — matches SOUL.md character
 
 # ── STT ───────────────────────────────────────────────────────────────────────
 WHISPER_MODEL         = "tiny.en"   # "tiny.en" (fast) | "base.en" (recommended) | "small.en"
-VAD_AGGRESSIVENESS    = 2           # 0-3; higher cuts more background noise
-SILENCE_CUTOFF_MS     = 700         # ms of silence before recording stops
-MAX_RECORD_SECONDS    = 9
+VAD_AGGRESSIVENESS    = 2           # 0-3; moderate VAD for speech/noise separation
+SILENCE_CUTOFF_MS     = 1200        # ms of silence before recording stops (natural pauses)
+MAX_RECORD_SECONDS    = 15          # longer recording for full sentences
+MIN_RMS_THRESHOLD     = 0.006      # energy gate — above room noise (~0.005), below speech (~0.02+)
+AUDIO_DEVICE_INDEX    = 3           # Realtek physical mic (run tools/mic_check.py to verify)
 
 # ── LLM Brain ─────────────────────────────────────────────────────────────────
 GROQ_MODEL            = "llama-3.3-70b-versatile"  # Premium intelligence — smarter reasoning, better personality
