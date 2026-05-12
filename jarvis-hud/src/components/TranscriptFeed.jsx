@@ -57,7 +57,7 @@ export default function TranscriptFeed({
     <div
       style={{
         position: "absolute",
-        left: 68,
+        left: 20,
         top: 60,
         bottom: 20,
         width: 380,

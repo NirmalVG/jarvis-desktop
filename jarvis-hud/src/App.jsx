@@ -4,7 +4,7 @@ import OrbZone from "./components/OrbZone"
 import TranscriptFeed from "./components/TranscriptFeed"
 import SystemPanel from "./components/SystemPanel"
 import TitleBar from "./components/TitleBar"
-import Sidebar from "./components/Sidebar"
+// Sidebar removed per user request
 import DustField from "./components/DustField"
 import HexGrid from "./components/HexGrid"
 import CommandPalette from "./components/CommandPalette"
@@ -77,7 +77,6 @@ export default function App() {
           onToggleClickthrough={handleToggleClickthrough}
           clickthrough={clickthrough}
         />
-        <Sidebar />
       </div>
 
       {/* Central orb */}
